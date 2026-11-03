@@ -89,6 +89,9 @@ B2_SLIRP_SRCS = \
 	mbuf.c misc.c sbuf.c slirp.c socket.c tcp_input.c tcp_output.c \
 	tcp_subr.c tcp_timer.c tftp.c udp.c
 B2_SLIRP_CFLAGS = -w -fno-strict-aliasing -I $(SRCROOT)src/port/ii/slirp -I $(B2)/slirp
+# BMMacintosh's own, compiled as slirp is: starting it before the Pi's
+# network is up.
+B2_SLIRP_PORT_SRCS = slirp_start.c
 
 # Basilisk II's options for ARM (Unix/configure.ac): the newer UAE core
 # (UPDATE_UAE) and its FPU. Its sources aren't all warning free: -w.

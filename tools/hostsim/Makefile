@@ -38,7 +38,8 @@ B2_OBJS := $(addprefix $(OUT)/b2/,$(B2_CORE_SRCS:.cpp=.o)) \
            $(addprefix $(GEN)/,$(B2_GEN_SRCS:.cpp=.o)) \
            $(foreach n,$(B2_CPUEMU_PARTS),$(GEN)/cpuemu$(n).o) \
            $(addprefix $(OUT)/port/ii/,$(B2_PORT_SRCS:.cpp=.o)) \
-           $(addprefix $(OUT)/slirp/,$(B2_SLIRP_SRCS:.c=.o))
+           $(addprefix $(OUT)/slirp/,$(B2_SLIRP_SRCS:.c=.o)) \
+           $(addprefix $(OUT)/slirp/,$(B2_SLIRP_PORT_SRCS:.c=.o))
 B2_FLAGS = $(CFLAGS) $(B2_CXXFLAGS) $(B2_INCLUDES) -I $(GEN)
 
 # ---- umac -----------------------------------------------------------------------
@@ -101,6 +102,10 @@ $(OUT)/port/ii/%.o: $(ROOT)/src/port/ii/%.cpp $(ROOT)/src/port/ii/ii.h \
 	$(CXX) $(B2_FLAGS) -c -o $@ $<
 
 $(OUT)/slirp/%.o: $(B2)/slirp/%.c $(ROOT)/src/port/ii/slirp/config.h
+	@mkdir -p $(dir $@)
+	@$(CC) $(CFLAGS) $(B2_SLIRP_CFLAGS) -c -o $@ $<
+
+$(OUT)/slirp/%.o: $(ROOT)/src/port/ii/slirp/%.c $(ROOT)/src/port/ii/slirp/config.h
 	@mkdir -p $(dir $@)
 	@$(CC) $(CFLAGS) $(B2_SLIRP_CFLAGS) -c -o $@ $<
 

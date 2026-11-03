@@ -11,9 +11,12 @@
  * through the Pi's own (Ethernet or Wi-Fi), with the Pi's address. No
  * AppleTalk, and nothing can connect to the Mac from outside.
  *
- * slirp runs in the background (host_run_in_background()): it waits for
- * the network, then passes frames between the Mac and its sockets. On the
- * Pi those are Circle's (src/slirp_sockets.cpp); on a PC, the system's.
+ * slirp runs in the background (host_run_in_background()), passing frames
+ * between the Mac and its sockets: on the Pi Circle's
+ * (src/slirp_sockets.cpp), on a PC the system's. It starts at once, so
+ * that it answers the Mac's DHCP as Mac OS starts, before the Pi's network
+ * is up (Wi-Fi can take longer than the Mac waits); its DNS server comes
+ * when the Pi's network does (src/port/ii/slirp/slirp_start.c).
  * The frames go between it and the emulator through two queues, each with
  * one side writing and the other reading; once a frame tick (main_ii.cpp,
  * ii_ether_tick()) sees frames for the Mac, the Ethernet interrupt passes
@@ -102,6 +105,10 @@ static void queue_drop(frame_queue *q)
 static volatile bool net_running;     /* slirp is set up */
 static bool net_started;
 
+/* src/port/ii/slirp/slirp_start.c */
+extern "C" int bmslirp_start(void);
+extern "C" int bmslirp_find_dns(void);
+
 /* slirp's frames for the Mac. */
 extern "C" int slirp_can_output(void)
 {
@@ -124,20 +131,20 @@ static void slirp_loop(void *arg)
 {
 	(void) arg;
 	char address[64];
-	/* The Pi's network first: slirp asks it for the DNS server. */
-	while (!host_network_address(address, sizeof address)) {
-#ifdef __circle__
-		host_yield();
-#else
-		usleep(100000);
-#endif
-	}
-	if (slirp_init() < 0) {
-		printf("BMMacintosh: the Mac's network has no DNS server\n");
-	}
-	printf("BMMacintosh: the Mac's network is up (10.0.2.15, through %s)\n", address);
+	bool have_dns = bmslirp_start() != 0, announced = false;
+	double last_look = 0.0;
 	net_running = true;
 	for (;;) {
+		/* Once a second until the Pi's network is up: then the DNS server,
+		   if slirp didn't find one at the start. */
+		if (!announced && host_time() - last_look >= 1.0
+		    && (last_look = host_time(), host_network_address(address, sizeof address))) {
+			if (!have_dns)
+				have_dns = bmslirp_find_dns() != 0;
+			announced = true;
+			printf("BMMacintosh: the Mac's network is up (10.0.2.15, through %s)%s\n", address,
+			       have_dns ? "" : ", but it has no DNS server");
+		}
 		frame *f;
 		while ((f = queue_peek(&to_slirp)) != NULL) {
 			slirp_input(f->data, f->length);

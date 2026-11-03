@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- The Mac II's network (slirp) starts with the Mac, not once the Pi's own
+  network is up: the Mac asks for its address as Mac OS starts, and the
+  Pi's Wi-Fi can take longer than it waits (19 s on a Pi 5). Its DNS
+  server comes when the Pi's network does. slirp also sets its own
+  10.0.2.x addresses when there is no DNS server yet, which it skipped
+
 ## 0.1.3 – 2026-10-30
 
 - The Mac II's menu puts floppy images into an empty floppy drive again,

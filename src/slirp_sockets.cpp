@@ -455,10 +455,16 @@ FILE *bmslirp_fopen(const char *path, const char *mode) {
   if (strcmp(path, "/etc/resolv.conf") != 0 || net == 0) {
     return fopen(path, mode);
   }
-  CString address;
-  net->GetConfig()->GetDNSServer()->Format(&address);
-  snprintf(text, sizeof text, "nameserver %s\n", (const char *)address);
-  return fmemopen(text, strlen(text), "r");
+  // Empty until the Pi's network is up and knows its DNS server
+  // (src/port/ii/slirp/slirp_start.c asks again later).
+  const CIPAddress *dns = net->IsRunning() ? net->GetConfig()->GetDNSServer() : 0;
+  text[0] = '\0';
+  if (dns != 0 && !dns->IsNull()) {
+    CString address;
+    dns->Format(&address);
+    snprintf(text, sizeof text, "nameserver %s\n", (const char *)address);
+  }
+  return fmemopen(text, strlen(text) > 0 ? strlen(text) : 1, "r");
 }
 
 }  // extern "C"

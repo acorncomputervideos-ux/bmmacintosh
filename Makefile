@@ -94,7 +94,8 @@ include src/port/ii/basilisk.mk
 EMU_OBJS := $(addprefix $(BUILD)/b2/,$(B2_CORE_SRCS:.cpp=.o)) \
             $(addprefix $(GEN)/b2/,$(B2_GEN_SRCS:.cpp=.o)) \
             $(foreach n,$(B2_CPUEMU_PARTS),$(GEN)/b2/cpuemu$(n).o) \
-            $(addprefix $(BUILD)/slirp/,$(B2_SLIRP_SRCS:.c=.o))
+            $(addprefix $(BUILD)/slirp/,$(B2_SLIRP_SRCS:.c=.o)) \
+            $(addprefix $(BUILD)/slirp/,$(B2_SLIRP_PORT_SRCS:.c=.o))
 OBJS += $(addprefix src/port/ii/,$(B2_PORT_SRCS:.cpp=.o)) src/slirp_sockets.o
 else
 include src/port/plus/umac.mk
@@ -207,6 +208,13 @@ $(BUILD)/b2/%.o: $(B2)/%.cpp $(GEN)/b2/cputbl.h src/port/ii/sysdeps.h
 # renames its socket calls).
 $(BUILD)/slirp/%.o: $(B2)/slirp/%.c src/port/ii/slirp/config.h src/port/ii/slirp/circle_sockets.h \
                     src/port/ii/slirp/circle/sys/uio.h
+	@mkdir -p $(dir $@)
+	@echo "  CC    $<"
+	@$(CC) $(CFLAGS) $(C_STANDARD) $(B2_SLIRP_CFLAGS) -I src/port/ii/slirp/circle \
+	    -include src/port/ii/slirp/circle_sockets.h -c -o $@ $<
+
+$(BUILD)/slirp/%.o: src/port/ii/slirp/%.c src/port/ii/slirp/config.h \
+                    src/port/ii/slirp/circle_sockets.h
 	@mkdir -p $(dir $@)
 	@echo "  CC    $<"
 	@$(CC) $(CFLAGS) $(C_STANDARD) $(B2_SLIRP_CFLAGS) -I src/port/ii/slirp/circle \
