@@ -157,6 +157,11 @@ printf '600 shot desktop.ppm\n610 key 0x45 1\n612 key 0x45 0\n640 shot menu.ppm\
     BMMAC_CMDLINE="root=." ../../build/macii_sim
 ```
 
+The commands are listed at the top of `tools/hostsim/host_sim.c`. Among
+them, `netprobe dhcp` and `netprobe dns` ask the Mac II's network for an
+address and look example.com up as the Mac would, and log the answers
+(after the Mac has started, around frame 900, with `BMMAC_IP` set).
+
 saves the Mac's screen at frame 600, presses F12 (USB HID usage 0x45) and
 saves the menu at frame 640. The commands are listed at the top of
 `tools/hostsim/host_sim.c`, and `tools/hostsim/run_tests.sh` has many

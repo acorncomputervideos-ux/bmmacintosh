@@ -239,7 +239,18 @@ BMMAC_IP=192.168.1.50 run "$II" iiboot 60 "" '600 shot a.ppm\n601 shot b.ppm\n90
 check_log iiboot "Quadra 610, 650 and 800 \(F1ACAD13\), 68040, 32 MB" "the Quadra ROM, a 68040, 32 MB"
 check_log iiboot "Mac 60\.15 Hz, synchronised to the display" "locked to the display"
 check_log iiboot "Mac screen 640x480, VDEPTH_8BIT" "a 640x480 screen in 256 colours"
-check_log iiboot "the Mac's network is up \(10\.0\.2\.15, through 192\.168\.1\.50\)" "the Mac's network (slirp) comes up with the Pi's"
+check_log iiboot "the Mac's network is up \(10\.0\.2\.15, through 192\.168\.1\.50, DNS server [0-9.]+\)" "the Mac's network (slirp) comes up with the Pi's, with its DNS server"
+
+echo "The Mac's network, asked as the Mac would (netprobe)"
+BMMAC_IP=192.168.1.50 run "$II" iinetprobe 60 "" '900 netprobe dhcp\n1000 netprobe dns\n1300 quit\n'
+check_log iinetprobe "netprobe: DHCP offer of 10\.0\.2\.15" "slirp's DHCP gives 10.0.2.15"
+if host example.com > /dev/null 2>&1 || nslookup example.com > /dev/null 2>&1; then
+    check_log iinetprobe "netprobe: DNS answer, [1-9][0-9]* answer\(s\), code 0" "a name looked up through slirp"
+else
+    skip "netprobe: DNS (this computer is offline)"
+fi
+BMMAC_IP=192.168.1.50 run "$II" iinetprobe2 60 "netprobe=1" '1500 quit\n'
+check_log iinetprobe2 "netprobe: DHCP offer of 10\.0\.2\.15" "netprobe=1 runs the test by itself once the network is up"
 check_cfg iiboot macii.prefs "^rom roms/.*f1acad13" "macii.prefs names the ROM"
 check_cfg iiboot macii.prefs "^extfs .*shared" "macii.prefs shares the card's shared folder"
 question iiboot a

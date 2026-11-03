@@ -109,14 +109,38 @@ static bool net_started;
 extern "C" int bmslirp_start(void);
 extern "C" int bmslirp_find_dns(void);
 
+/* The Pi's network is up: netprobe=1 in cmdline.txt then runs the network
+   test (emu_net_probe()) on the Pi too (ii_ether_tick()). */
+static volatile bool net_announced;
+extern "C" const char *bmslirp_dns_text(void);
+
 /* slirp's frames for the Mac. */
 extern "C" int slirp_can_output(void)
 {
 	return 1;
 }
 
+/* The network test (emu_net_probe()): what answered. */
+static volatile bool probing, dns_answered;
+
+static void probe_answer(const uint8 *d, int len)
+{
+	/* Ethernet, IPv4, UDP: the source port says what answered. */
+	if (len < 42 || d[12] != 0x08 || d[13] != 0x00 || d[23] != 17)
+		return;
+	int ihl = (d[14] & 15) * 4, udp = 14 + ihl, sport = (d[udp] << 8) | d[udp + 1];
+	if (sport == 67 && len >= udp + 8 + 20)
+		printf("BMMacintosh: netprobe: DHCP offer of %d.%d.%d.%d\n", d[udp + 24], d[udp + 25],
+		       d[udp + 26], d[udp + 27]);
+	else if (sport == 53 && len >= udp + 8 + 12 && (dns_answered = true))
+		printf("BMMacintosh: netprobe: DNS answer, %d answer(s), code %d\n",
+		       (d[udp + 14] << 8) | d[udp + 15], d[udp + 11] & 15);
+}
+
 extern "C" void slirp_output(const uint8 *packet, int length)
 {
+	if (probing)
+		probe_answer(packet, length);
 	/* When the Mac is slow to take them, they are lost, as on a real
 	   network. */
 	static bool told;
@@ -142,8 +166,9 @@ static void slirp_loop(void *arg)
 			if (!have_dns)
 				have_dns = bmslirp_find_dns() != 0;
 			announced = true;
-			printf("BMMacintosh: the Mac's network is up (10.0.2.15, through %s)%s\n", address,
-			       have_dns ? "" : ", but it has no DNS server");
+			printf("BMMacintosh: the Mac's network is up (10.0.2.15, through %s, DNS server %s)\n",
+			       address, bmslirp_dns_text());
+			net_announced = true;
 		}
 		frame *f;
 		while ((f = queue_peek(&to_slirp)) != NULL) {
@@ -165,6 +190,62 @@ static void slirp_loop(void *arg)
 #else
 		usleep(2000);
 #endif
+	}
+}
+
+/* ---- The network test (the PC simulator's "netprobe", or netprobe=1 on the Pi) ---- */
+
+/* An Ethernet frame from the Mac (its address and 10.0.2.15) of a UDP
+   datagram to DST:DPORT, given to slirp as the Mac's would be. */
+static void probe_udp(uint32 dst, int dport, const uint8 *payload, int n)
+{
+	static const uint8 to[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+	uint8 f[600], *ip = f + 14, *udp = ip + 20;
+	uint32 src = dst == 0xffffffff ? 0 : 0x0a00020f;
+	unsigned sum = 0;
+	memset(f, 0, sizeof f);
+	memcpy(f, to, 6);
+	memcpy(f + 6, ether_addr, 6);
+	f[12] = 0x08;
+	ip[0] = 0x45;
+	ip[2] = (20 + 8 + n) >> 8, ip[3] = (20 + 8 + n) & 255;
+	ip[8] = 64, ip[9] = 17;
+	for (int i = 0; i < 4; i++)
+		ip[12 + i] = src >> (24 - 8 * i), ip[16 + i] = dst >> (24 - 8 * i);
+	for (int i = 0; i < 20; i += 2)
+		sum += (ip[i] << 8) | ip[i + 1];
+	sum = (sum & 0xffff) + (sum >> 16);
+	sum = ~((sum & 0xffff) + (sum >> 16)) & 0xffff;
+	ip[10] = sum >> 8, ip[11] = sum & 255;
+	udp[0] = 40000 >> 8, udp[1] = 40000 & 255, udp[2] = dport >> 8, udp[3] = dport & 255;
+	udp[4] = (8 + n) >> 8, udp[5] = (8 + n) & 255;
+	memcpy(udp + 8, payload, n);
+	if (dst == 0xffffffff)
+		udp[0] = 0, udp[1] = 68;
+	probing = true;
+	queue_put(&to_slirp, f, 14 + 20 + 8 + n);
+}
+
+void emu_net_probe(int step)
+{
+	uint8 p[300];
+	if (!net_running) {
+		printf("BMMacintosh: netprobe: the Mac's network isn't running\n");
+		return;
+	}
+	memset(p, 0, sizeof p);
+	if (step == 0) {
+		/* BOOTP request, DHCP DISCOVER */
+		p[0] = 1, p[1] = 1, p[2] = 6, p[4] = 0x12, p[5] = 0x34, p[10] = 0x80;
+		memcpy(p + 28, ether_addr, 6);
+		p[236] = 99, p[237] = 130, p[238] = 83, p[239] = 99;
+		p[240] = 53, p[241] = 1, p[242] = 1, p[243] = 255;
+		probe_udp(0xffffffff, 67, p, 244);
+	} else {
+		/* example.com, A, to slirp's DNS server, 10.0.2.3 */
+		static const uint8 q[] = {0x42, 0x42, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0,
+		                          7, 'e', 'x', 'a', 'm', 'p', 'l', 'e', 3, 'c', 'o', 'm', 0, 0, 1, 0, 1};
+		probe_udp(0x0a000203, 53, q, sizeof q);
 	}
 }
 
@@ -292,6 +373,29 @@ void EtherInterrupt(void)
    Mac. */
 void ii_ether_tick(void)
 {
+	/* netprobe: DHCP 2 s after the Pi's network is up, DNS 1 s later, and
+	   whether DNS answered 5 s after that. */
+	static double probe_at;
+	static int probe_step, probe_wanted = -1;
+	if (net_announced && probe_wanted < 0)
+		probe_wanted = host_option_int("netprobe", 0);
+	if (net_announced && probe_step < 3 && probe_wanted > 0) {
+		double now = host_time();
+		if (probe_at == 0.0)
+			probe_at = now + 2.0;
+		if (now >= probe_at) {
+			if (probe_step < 2)
+				emu_net_probe(probe_step);
+			else {
+				if (!dns_answered)
+					printf("BMMacintosh: netprobe: no DNS answer\n");
+				/* Done: the Mac's own DHCP and DNS aren't the test's. */
+				probing = false;
+			}
+			probe_step++;
+			probe_at = now + (probe_step == 2 ? 5.0 : 1.0);
+		}
+	}
 	if (queue_peek(&to_mac) != NULL) {
 		SetInterruptFlag(INTFLAG_ETHER);
 		TriggerInterrupt();

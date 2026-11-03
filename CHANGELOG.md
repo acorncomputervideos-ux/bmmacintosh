@@ -1,7 +1,19 @@
 # Changelog
 
-## Unreleased
+## 0.1.4 – 2026-11-03
 
+- The Mac II reaches the Internet from a Pi (issue #5): it had an address
+  but no name could be looked up and no connection made. On the Pi slirp's
+  sockets (Circle's) were asked not to wait with newlib's MSG_DONTWAIT
+  (1 << 20), not Circle's (0x40), and Circle refused every datagram sent.
+  Tested on a Pi 5: DNS, and Internet Explorer 4 loading web pages. UDP
+  sockets are bound when made, an error reading one no longer turns into
+  an ICMP "unreachable" for the Mac, and the log names slirp's DNS server
+  and the first datagrams and connections, with Circle's result
+- `netprobe=1` in `cmdline.txt`: once the Pi's network is up, the Mac II's
+  network is asked for an address and a name as the Mac would, and the
+  answers logged, a test of the network without a program on the Mac.
+  The PC simulator's `netprobe dhcp|dns` does the same
 - The Mac II's network (slirp) starts with the Mac, not once the Pi's own
   network is up: the Mac asks for its address as Mac OS starts, and the
   Pi's Wi-Fi can take longer than it waits (19 s on a Pi 5). Its DNS

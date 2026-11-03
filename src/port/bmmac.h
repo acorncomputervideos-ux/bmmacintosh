@@ -225,6 +225,10 @@ void emu_cold_reset(void);
 /* The web UI's "start this file": a disk image is put in and the Mac
    started from it. */
 void emu_autostart(const char *path);
+/* The PC simulator's network test ("netprobe"): STEP 0 asks the Mac's
+   network for an address (DHCP), 1 looks a name up (DNS), as the Mac
+   would; the answers are logged. The Mac Plus has no network. */
+void emu_net_probe(int step);
 /* The disk image types emu_autostart() takes (lower case, no dot). */
 const char *const *emu_run_types(void);
 /* Writes everything the Mac has changed to the card (before power off,

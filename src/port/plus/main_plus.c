@@ -594,6 +594,11 @@ void emu_cold_reset(void)
 	restart_requested = TRUE;
 }
 
+void emu_net_probe(int step)
+{
+	(void) step;
+}
+
 /* The web UI's "start this file": the disk, and the Mac starts again. */
 void emu_autostart(const char *path)
 {

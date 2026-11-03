@@ -28,6 +28,12 @@
 #include <circle/sched/task.h>
 #include <circle/string.h>
 
+// Circle's "don't wait" flag, taken before newlib's <sys/socket.h>
+// defines MSG_DONTWAIT again, as 1 << 20, which Circle's sockets refuse
+// (SendTo() returned NET_ERROR_INVALID_VALUE: the Mac's DNS queries never
+// left the Pi, issue #5).
+static const int kDontWait = MSG_DONTWAIT;
+
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <errno.h>
@@ -62,6 +68,20 @@ struct Socket {
 
 Socket s_sockets[kMaxSockets];
 
+// The first few of each happening are logged, for a network that doesn't
+// work on a Pi: where the Mac's datagrams and connections go, and what
+// Circle said.
+const int kLogFirst = 4;
+
+const char *Text(const CIPAddress &ip) {
+  static char text[4][16];
+  static unsigned next;
+  char *t = text[next++ % 4];
+  const u8 *b = ip.Get();
+  snprintf(t, 16, "%u.%u.%u.%u", b[0], b[1], b[2], b[3]);
+  return t;
+}
+
 Socket *Get(int fd) {
   if (fd < 0 || fd >= kMaxSockets || s_sockets[fd].state == kFree) {
     errno = EBADF;
@@ -84,7 +104,14 @@ public:
   void Run(void) override {
     Socket *s = mSocket;
     CSocket *socket = new CSocket(CNetSubSystem::Get(), IPPROTO_TCP);
-    bool ok = socket->Connect(s->foreign_ip, s->foreign_port) >= 0;
+    int result = socket->Connect(s->foreign_ip, s->foreign_port);
+    bool ok = result >= 0;
+    static int logged;
+    if (logged < kLogFirst) {
+      logged++;
+      printf("BMMacintosh: slirp: TCP to %s:%u %s (%d)\n", Text(s->foreign_ip),
+             s->foreign_port, ok ? "connected" : "failed", result);
+    }
     if (s->closed) {
       delete socket;
       s->closed = false;
@@ -116,10 +143,26 @@ bool Fill(Socket *s) {
   }
   int got;
   if (s->tcp) {
-    got = s->socket->Receive(s->buffer, kBufferSize, MSG_DONTWAIT);
+    got = s->socket->Receive(s->buffer, kBufferSize, kDontWait);
   } else {
-    got = s->socket->ReceiveFrom(s->buffer, kBufferSize, MSG_DONTWAIT,
+    got = s->socket->ReceiveFrom(s->buffer, kBufferSize, kDontWait,
                                  &s->from_ip, &s->from_port);
+    // A UDP socket has no end: an error is only nothing to read. Reported
+    // as readable, it would make slirp send the Mac an ICMP "unreachable"
+    // for its lookup.
+    static int logged;
+    if (got != 0 && logged < kLogFirst) {
+      logged++;
+      if (got < 0) {
+        printf("BMMacintosh: slirp: UDP receive failed (%d)\n", got);
+      } else {
+        printf("BMMacintosh: slirp: UDP %d bytes from %s:%u\n", got, Text(s->from_ip),
+               s->from_port);
+      }
+    }
+    if (got < 0) {
+      got = 0;
+    }
   }
   if (got < 0) {
     return false;
@@ -167,7 +210,19 @@ int bmslirp_socket(int domain, int type, int protocol) {
     s->tcp = type == SOCK_STREAM;
     s->closed = false;
     s->pos = s->length = 0;
-    s->socket = s->tcp ? 0 : new CSocket(net, IPPROTO_UDP);
+    s->socket = 0;
+    if (!s->tcp) {
+      // Bound now (to a port of Circle's choosing), so that it can be read
+      // before it has sent anything, as BMNeXT's host_udp_open() does.
+      s->socket = new CSocket(net, IPPROTO_UDP);
+      int result = s->socket->Bind(0);
+      if (result < 0) {
+        printf("BMMacintosh: slirp: no UDP socket (%d)\n", result);
+        FreeSlot(s);
+        errno = ENOBUFS;
+        return -1;
+      }
+    }
     return fd;
   }
   errno = EMFILE;
@@ -233,7 +288,7 @@ ssize_t bmslirp_send(int fd, const void *buffer, size_t length, int flags) {
   if (length == 0) {
     return 0;
   }
-  int sent = s->socket->Send(buffer, length, MSG_DONTWAIT);
+  int sent = s->socket->Send(buffer, length, kDontWait);
   if (sent < 0) {
     errno = EPIPE;
     return -1;
@@ -283,7 +338,13 @@ ssize_t bmslirp_sendto(int fd, const void *buffer, size_t length, int flags,
   }
   const struct sockaddr_in *in = (const struct sockaddr_in *)address;
   CIPAddress ip(in->sin_addr.s_addr);
-  int sent = s->socket->SendTo(buffer, length, MSG_DONTWAIT, ip, ntohs(in->sin_port));
+  int sent = s->socket->SendTo(buffer, length, kDontWait, ip, ntohs(in->sin_port));
+  static int logged;
+  if (logged < kLogFirst) {
+    logged++;
+    printf("BMMacintosh: slirp: UDP %u bytes to %s:%u (%d)\n", (unsigned)length, Text(ip),
+           ntohs(in->sin_port), sent);
+  }
   if (sent < 0) {
     errno = EHOSTUNREACH;
     return -1;
@@ -333,7 +394,8 @@ int bmslirp_select(int nfds, fd_set *readfds, fd_set *writefds,
     bool can_read = false, can_write = false;
     if (s->state == kConnected || (!s->tcp && s->state == kNew)) {
       if (want_read) {
-        // Ready with data, or at the end of the connection.
+        // Ready with data, or at the end of a TCP connection (Fill()
+        // never fails for UDP).
         can_read = !Fill(s) || s->pos < s->length;
       }
       if (want_write) {

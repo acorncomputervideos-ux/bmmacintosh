@@ -53,3 +53,9 @@ int bmslirp_find_dns(void)
 	fclose(f);
 	return found;
 }
+
+/* slirp's DNS server, for the log ("none" if it has none). */
+const char *bmslirp_dns_text(void)
+{
+	return dns_addr.s_addr != 0 ? inet_ntoa(dns_addr) : "none";
+}

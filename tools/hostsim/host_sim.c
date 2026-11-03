@@ -20,6 +20,7 @@
  *   <frame> shot <file.ppm>        save the visible screen
  *   <frame> audio                  print audio statistics
  *   <frame> webui <reboot|coldstart>  a request from the web UI
+ *   <frame> netprobe <dhcp|dns>    the Mac II's network asked for an address or a name
  *   <frame> run <path>             the web UI starts a file
  *   <frame> quit                   end the test
  *
@@ -54,6 +55,7 @@
 void bmmac_request_power(int power_off);
 void bmmac_request_coldstart(void);
 void emu_autostart_interrupt(const char *path);
+void emu_net_probe(int step);
 
 /* ---- Options ---------------------------------------------------------------- */
 
@@ -511,6 +513,8 @@ static void run_script(void)
 			emu_autostart_interrupt(line + n + 1);
 		} else if (strcmp(cmd, "shot") == 0) {
 			screenshot(line + n + 1);
+		} else if (strcmp(cmd, "netprobe") == 0) {
+			emu_net_probe(strstr(line + n, "dns") != NULL);
 		} else if (strcmp(cmd, "webui") == 0) {
 			if (strstr(line + n, "reboot"))
 				bmmac_request_power(0);

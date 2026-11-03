@@ -292,6 +292,7 @@ which the menu changes.
 | `plus_rom`, `plus_disk`, `plus_ram` | a path; KB (128 to 4096) | | The Mac Plus's ROM, disk and memory (the menu sets them) |
 | `ii_max_instructions` | number                     | `2000000` | The most instructions the Mac II runs in a frame |
 | `enable_logging`    | `off`, `uart`, `file`        | `off`    | Where the log goes (see Logging) |
+| `netprobe`          | `0`, `1`                     | `0`      | Mac II: tests its network once the Pi's is up (an address, then a name looked up) and logs the answers |
 | `network`           | `off`, `ethernet`, `wifi`    | `off`    | Networking (see Networking and the web UI) |
 | `webui`             | `0`, `1`                     | `1`      | Web UI when networking is on |
 | `webui_pin`         | digits                       | none     | PIN for the web UI |
