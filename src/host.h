@@ -36,6 +36,12 @@ double host_time(void);
 void host_sleep_us(unsigned us);
 /* Lets Circle's tasks (VCHIQ, USB) run. Call regularly. */
 void host_yield(void);
+/* Lets Circle's tasks run while the web UI is answering a request (an
+   upload or a download), and does nothing otherwise. They run once a frame
+   anyway (host_video_present()); the emulators call this between a frame's
+   parts as well, so a transfer isn't held to one turn of the network a
+   frame. */
+void host_poll_tasks(void);
 
 /* ---- Video --------------------------------------------------------------- */
 

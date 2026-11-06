@@ -14,6 +14,17 @@
   AppleDouble files (`._name`) macOS writes next to them, which were left
   out, so applications and many documents came without them and wouldn't
   open
+- Faster uploads and downloads in the web UI. The network and the web UI
+  run between the Mac's frames, and had one turn a frame: while the web
+  UI answers a request they now also run between the parts of a frame
+  (four times as often on the Mac II). Uploads are written to the card
+  32 KB at a time instead of a network packet (1460 bytes) at a time, and
+  the Pi's TCP receive window is 32 packets instead of 10
+  (`src/patches/circle_tcp_window_patch.diff`), which also helps the Mac
+  II's own downloads. Not measured on a Pi yet
+- The Mac II's CPU core is compiled without a frame pointer: each 68k
+  instruction's function no longer saves and restores one (3.4% less of
+  the core's code on the Pi 5, cortex-a76). Not measured on a Pi yet
 
 ## 0.1.4 – 2026-11-03
 

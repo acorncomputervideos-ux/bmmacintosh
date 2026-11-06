@@ -380,24 +380,33 @@ BodyResult ReceiveBodyToFile(CSocket *socket, const char *temppath,
     written += prefetched_len;
   }
 
+  // A Receive() brings one TCP segment or a few (1460 bytes each): they are
+  // gathered into the buffer and written to the card a buffer at a time,
+  // which FatFs and the card do in far fewer, bigger writes than a segment
+  // at a time.
+  unsigned buffered = 0;
   while (result == BODY_OK && written < total) {
     unsigned long remain = total - written;
-    unsigned want = remain < sizeof(s_io_buffer) ? (unsigned) remain
-                                                 : sizeof(s_io_buffer);
-    int n = socket->Receive(s_io_buffer, want, 0);
+    unsigned space = sizeof(s_io_buffer) - buffered;
+    unsigned want = remain < space ? (unsigned) remain : space;
+    int n = socket->Receive(s_io_buffer + buffered, want, 0);
     if (n <= 0) {
       result = BODY_TRUNCATED;
       break;
     }
-    if (reject_nul && memchr(s_io_buffer, 0, (unsigned) n) != 0) {
+    if (reject_nul && memchr(s_io_buffer + buffered, 0, (unsigned) n) != 0) {
       result = BODY_HAS_NUL;
       break;
     }
-    if (sd_write(file, s_io_buffer, (unsigned) n) != SD_OK) {
-      result = BODY_WRITE_FAILED;
-      break;
-    }
+    buffered += (unsigned) n;
     written += (unsigned) n;
+    if (buffered == sizeof(s_io_buffer) || written == total) {
+      if (sd_write(file, s_io_buffer, buffered) != SD_OK) {
+        result = BODY_WRITE_FAILED;
+        break;
+      }
+      buffered = 0;
+    }
     CScheduler::Get()->Yield();
   }
 

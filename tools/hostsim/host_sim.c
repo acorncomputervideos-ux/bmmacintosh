@@ -176,6 +176,10 @@ void host_sleep_us(unsigned us)
 	tick();
 }
 
+void host_poll_tasks(void)
+{
+}
+
 void host_yield(void)
 {
 	if (live)

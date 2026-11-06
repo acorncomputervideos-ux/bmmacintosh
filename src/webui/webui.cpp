@@ -275,6 +275,9 @@ void HandleStatus(CSocket *socket) {
 // Server lifecycle flags. s_started guards against a second task;
 // g_webui_stop is set by POST /api/webui/disable to end the accept loop.
 boolean s_started = FALSE;
+// Answering a request (WebUiBusy()): set and read on core 1, where the
+// web UI's task and the emulator both run.
+volatile boolean s_busy = FALSE;
 boolean g_webui_stop = FALSE;
 
 // HTTP Basic Auth PIN; empty means the server is open.
@@ -619,8 +622,10 @@ public:
         CScheduler::Get()->MsSleep(50);
         continue;
       }
+      s_busy = TRUE;
       HandleConnection(connection);
       delete connection;
+      s_busy = FALSE;
       if (g_webui_stop) {
         break;
       }
@@ -651,8 +656,12 @@ void WebUiStart(CNetSubSystem *network, const char *pin) {
   new CWebUiTask(network);  // registers itself with the scheduler
 }
 
+bool WebUiBusy(void) { return s_busy; }
+
 #else  // no Circle networking on this machine build
 
 void WebUiStart(CNetSubSystem *, const char *) {}
+
+bool WebUiBusy(void) { return false; }
 
 #endif

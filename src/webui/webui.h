@@ -39,4 +39,9 @@ class CNetSubSystem;
 // base64(<anything>:<pin>).
 void WebUiStart(CNetSubSystem *network, const char *pin);
 
+// TRUE while the web UI is answering a request: the emulators then let
+// Circle's tasks run more often (host_poll_tasks()), so an upload or a
+// download moves faster.
+bool WebUiBusy(void);
+
 #endif

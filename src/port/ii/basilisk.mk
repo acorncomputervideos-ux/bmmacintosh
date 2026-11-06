@@ -102,4 +102,9 @@ B2_SLIRP_PORT_SRCS = slirp_start.c
 # (UPDATE_UAE) and its FPU. Its sources aren't all warning free: -w.
 B2_DEFINES = $(B2_UAE_DEFINES) -DFPU_UAE
 B2_INCLUDES = -I $(SRCROOT)src/port/ii -I $(B2)/$(B2_UAE) -I $(B2)/include
-B2_CXXFLAGS = -std=gnu++14 -w $(B2_DEFINES)
+# Without a frame pointer, which GCC keeps on AArch64 unless told: the CPU
+# core runs a small function for each 68k instruction, and each saved and
+# restored it (3.4% of the core's code for the Pi 5, cortex-a76, and three
+# of the ten to twenty instructions a short one runs). Stack traces through
+# Basilisk II need the debug information instead.
+B2_CXXFLAGS = -std=gnu++14 -w $(B2_DEFINES) -fomit-frame-pointer

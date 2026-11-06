@@ -665,6 +665,7 @@ void emu_main(void)
 			while (emulated < wanted) {
 				int stopped = umac_loop();
 				answer_instant();
+				host_poll_tasks();
 				if (stopped) {
 					printf("BMMacintosh: umac stopped\n");
 					bmmac_stopped("The Mac has stopped (umac could not go on).\n"

@@ -258,6 +258,7 @@ static void frame(void)
 void cpu_do_check_ticks(void)
 {
 	ii_audio_service();
+	host_poll_tasks();
 	if (++subtick >= SUBTICKS) {
 		mac_frames_usec += (uint64) (1000000.0 / 60.15);
 		subtick = 0;

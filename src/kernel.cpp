@@ -13,6 +13,7 @@
 #include "av/layout.h"
 #include "logging.h"
 #include "network.h"
+#include "webui/webui.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -1164,6 +1165,14 @@ void host_sleep_us(unsigned us) {
 }
 
 void host_yield(void) { CScheduler::Get()->Yield(); }
+
+void host_poll_tasks(void) {
+  if (WebUiBusy()) {
+    Core1Beat("running Circle tasks");
+    CScheduler::Get()->Yield();
+    Core1Beat("emulating");
+  }
+}
 
 int host_video_init(int width, int height, uint16_t **pixels, int *pitch) {
   return CKernel::Get()->VideoInit(width, height, pixels, pitch);
