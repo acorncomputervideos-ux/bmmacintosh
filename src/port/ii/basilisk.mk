@@ -80,7 +80,12 @@ B2_PORT_SRCS = \
 	prefs_ii.cpp \
 	menu_ii.cpp \
 	extfs_ii.cpp \
+	extfs_posix.cpp \
 	ether_ii.cpp
+
+# Basilisk II's extfs.cpp, compiled with this first: its file positions
+# kept as POSIX has them on FatFs (src/port/ii/extfs_posix.h).
+B2_EXTFS_FLAGS = -include $(SRCROOT)src/port/ii/extfs_posix.h
 
 # slirp, as Basilisk II's Unix build has it (configure.ac). Not all
 # warning free either, and it needs -fno-strict-aliasing (as there).

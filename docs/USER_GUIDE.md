@@ -98,7 +98,12 @@ folder a disk on the Mac's desktop, *SD Card*: files copied into it (from
 a PC, or the web UI) are the Mac's, and the other way round. The Mac's
 files keep their type and creator, and their resource forks, in `.finf`
 and `.rsrc` folders next to them; characters FAT can't have in a name are
-written `%XX` on the card.
+written `%XX` on the card. Files copied to the card on a Mac running macOS
+bring their type, creator and resource fork in the `._` files macOS writes
+next to them, and the SD Card disk uses those. Copied from Windows or
+Linux, a file has only its data: one with a resource fork (an
+application, most System files) only travels in an archive or disk image
+(`.sit`, `.hqx`, `.bin`, `.dsk`, `.img`), which the Mac then opens.
 
 **Mac Plus.** *Disk* in the menu chooses its disk (a floppy image, raw or
 DiskCopy 4.2, or a hard disk's, raw or partitioned: it starts from the

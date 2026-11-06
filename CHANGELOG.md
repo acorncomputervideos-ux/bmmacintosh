@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+- The Mac II's SD Card disk (the shared folder) no longer spoils files the
+  Mac writes on a Pi. When a program saved over a file with less than it
+  held, or the Mac moved past a file's end, FatFs (through circle-newlib)
+  made the file longer, ending in whatever the card held, and it wouldn't
+  open again. The file positions now follow POSIX's rules, as on a PC,
+  where the PC simulator's tests ran (`src/port/ii/extfs_posix.cpp`,
+  tested against stand-ins for FatFs's calls by `tools/extfs_posix`)
+- Files copied to the card from a Mac running macOS keep their type,
+  creator and resource fork on the SD Card disk: they come from the
+  AppleDouble files (`._name`) macOS writes next to them, which were left
+  out, so applications and many documents came without them and wouldn't
+  open
+
 ## 0.1.4 – 2026-11-03
 
 - The Mac II reaches the Internet from a Pi (issue #5): it had an address

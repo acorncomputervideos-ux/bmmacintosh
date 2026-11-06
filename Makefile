@@ -199,6 +199,8 @@ $(B2_GEN_OBJS): $(GEN)/b2/%.o: $(GEN)/b2/%.cpp $(GEN)/b2/cputbl.h src/port/ii/sy
 	@echo "  CPP   $<"
 	@$(CPP) $(B2_FLAGS) -c -o $@ $<
 
+$(BUILD)/b2/extfs.o: B2_FLAGS += $(B2_EXTFS_FLAGS)
+$(BUILD)/b2/extfs.o: src/port/ii/extfs_posix.h
 $(BUILD)/b2/%.o: $(B2)/%.cpp $(GEN)/b2/cputbl.h src/port/ii/sysdeps.h
 	@mkdir -p $(dir $@)
 	@echo "  CPP   $<"

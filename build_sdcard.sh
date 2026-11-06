@@ -19,7 +19,8 @@
 #
 # Several boards can be given, e.g. ./build_sdcard.sh pi4 pi5.
 #
-# The PC tests (tools/hostsim, tools/pi4kms, tools/pi4scaler) run first, and
+# The PC tests (tools/hostsim, tools/pi4kms, tools/pi4scaler,
+# tools/extfs_posix) run first, and
 # the build stops if any of them fails. --skip-tests leaves them out.
 #
 # Without --skip-patches each board is built from clean_all.sh. With it, the
@@ -129,6 +130,7 @@ then
     run_tests "$SRC_DIR/tools/hostsim/run_tests.sh"
     run_tests "$SRC_DIR/tools/pi4kms/run_tests.sh"
     run_tests "$SRC_DIR/tools/pi4scaler/run_tests.sh"
+    run_tests "$SRC_DIR/tools/extfs_posix/run_tests.sh"
 fi
 
 # The SD card is staged once; each board's build adds its kernels.

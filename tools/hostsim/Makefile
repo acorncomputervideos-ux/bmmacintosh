@@ -92,6 +92,8 @@ $(GEN)/cpuemu%.o: $(GEN)/cpuemu.cpp $(ROOT)/src/port/ii/sysdeps.h
 $(GEN)/%.o: $(GEN)/%.cpp $(GEN)/cputbl.h $(ROOT)/src/port/ii/sysdeps.h
 	@$(CXX) $(B2_FLAGS) -c -o $@ $<
 
+$(OUT)/b2/extfs.o: B2_FLAGS += $(B2_EXTFS_FLAGS)
+$(OUT)/b2/extfs.o: $(ROOT)/src/port/ii/extfs_posix.h
 $(OUT)/b2/%.o: $(B2)/%.cpp $(GEN)/cputbl.h $(ROOT)/src/port/ii/sysdeps.h
 	@mkdir -p $(dir $@)
 	@$(CXX) $(B2_FLAGS) -c -o $@ $<

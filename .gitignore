@@ -18,6 +18,7 @@ tools/hostsim/out/
 tools/pi4scaler/build/
 tools/pi4scaler/out/
 tools/pi4kms/build/
+tools/extfs_posix/out/
 tools/v3dshader/v3dshader
 tools/v3dshader/*.spv
 sdcard_out/
