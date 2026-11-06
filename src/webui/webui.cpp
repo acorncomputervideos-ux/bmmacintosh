@@ -6,6 +6,8 @@
 // (once a frame, and while it waits), so long I/O loops yield to keep the
 // network stack and the emulation going.
 //
+// The SD card is a network drive (WebDAV) at /sd/: see webdav.cpp.
+//
 // Endpoints: GET static assets, GET /api/status, POST /api/reboot,
 // POST /api/shutdown, POST /api/reset, GET /api/volumes, GET /api/fs/list, GET /api/fs/download,
 // POST /api/fs/upload, POST /api/fs/save, POST /api/fs/delete,
@@ -40,6 +42,7 @@
 #include "webui_fs.h"
 #include "webui_http.h"
 #include "webui_machine.h"
+#include "webdav.h"
 
 #include <circle/bcmpropertytags.h>
 #include <circle/logger.h>
@@ -395,6 +398,22 @@ void Send401(CSocket *socket) {
   }
 }
 
+// The network drive's requests (webdav.cpp) through the connection's socket.
+class CSocketDavConnection : public CWebDavConnection {
+public:
+  explicit CSocketDavConnection(CSocket *socket) : m_socket(socket) {}
+  int Receive(void *buffer, unsigned length) override {
+    return m_socket->Receive(buffer, length, 0);
+  }
+  bool Send(const void *data, unsigned length) override {
+    return webhttp::SendAll(m_socket, data, length);
+  }
+  void Yield(void) override { CScheduler::Get()->Yield(); }
+
+private:
+  CSocket *m_socket;
+};
+
 boolean HandleConnection(CSocket *socket) {
   socket->SetOptionReceiveTimeout(WEBUI_RECV_TIMEOUT_US);
 
@@ -424,9 +443,9 @@ boolean HandleConnection(CSocket *socket) {
   unsigned body_prefetched = (unsigned) ((const unsigned char *) (request + length) - body);
   long content_length = ParseContentLength(request);
 
-  char method[8];
+  char method[16];  // PROPPATCH is 9 letters
   char target[WEBUI_REQUEST_MAX];
-  if (sscanf(request, "%7s %4095s", method, target) != 2) {
+  if (sscanf(request, "%15s %4095s", method, target) != 2) {
     SendText(socket, 400, "Bad Request", "bad request line\n");
     return FALSE;
   }
@@ -447,6 +466,17 @@ boolean HandleConnection(CSocket *socket) {
       CScheduler::Get()->MsSleep(WEBUI_AUTH_FAIL_MS);
     }
     Send401(socket);
+    return FALSE;
+  }
+
+  // The SD card as a network drive (webdav.cpp), with the query left on
+  // the target for it.
+  if (WebDavWants(method, target)) {
+    if (question != 0) {
+      *question = '?';
+    }
+    CSocketDavConnection connection(socket);
+    WebDavHandle(&connection, method, target, request, body, body_prefetched);
     return FALSE;
   }
 

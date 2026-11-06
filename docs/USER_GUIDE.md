@@ -95,7 +95,7 @@ the two floppy drives while the Mac runs, *Insert a CD-ROM* an `.iso` or
 `.toast` image in the CD-ROM drive; the Mac ejects them (Command-E, or
 dragging them to the Trash). *Shared Folder* makes the card's `shared`
 folder a disk on the Mac's desktop, *SD Card*: files copied into it (from
-a PC, or the web UI) are the Mac's, and the other way round. The Mac's
+a PC, or over the network drive) are the Mac's, and the other way round. The Mac's
 files keep their type and creator, and their resource forks, in `.finf`
 and `.rsrc` folders next to them; characters FAT can't have in a name are
 written `%XX` on the card. Files copied to the card on a Mac running macOS
@@ -135,7 +135,7 @@ and the Mac stops while it's open. The arrow keys (or the D-pad) move,
 | Machine       | The Mac Plus or the Mac II (the Pi restarts) |
 | Video         | Screen size, frame lock, CRT effect, smooth scaling, disk activity |
 | Sound         | Volume, HDMI or the headphone jack |
-| Network       | Ethernet or Wi-Fi, the web UI |
+| Network       | Ethernet or Wi-Fi, the network drive and web page |
 | About         | Versions, the machine, the display |
 
 The menu's last line shows how often frames are shown, as a percentage of
@@ -183,12 +183,13 @@ exact rate itself (see [PI4.md](PI4.md)). `vsync=on` or `vsync=off` in
 A small red light at the bottom right of the Mac's screen shows the disk
 in use (*Video*, *Show Disk Activity*).
 
-## Networking and the web UI
+## Networking, the network drive and the web UI
 
-BMMacintosh can join your network over Ethernet or Wi-Fi and serve a web page
-for managing the SD card from any browser on the same network, so files can
-be copied to and from the Pi without taking the card out. It is the web UI
-from BMC64.
+BMMacintosh can join your network over Ethernet or Wi-Fi. The SD card then
+opens as a **network drive** in your computer's own file manager (WebDAV),
+so disk images, ROMs and files can be copied to and from the Pi without
+taking the card out, and a small web page has the Pi's settings and
+controls.
 
 Turn it on in the menu's *Network*. For Ethernet, set *Network* to Ethernet
 and reboot. For Wi-Fi, choose *Scan for Wi-Fi Networks*: the first time,
@@ -210,36 +211,73 @@ there.
 
 Once the Pi has an address, it is shown at the bottom of the screen for a
 few seconds (`WEB UI: HTTP://192.168.1.50/`) and written to the log.
-Open that address in a browser.
+Open that address in a browser: the page shows the network drive's address
+(the same, with `/sd/` after it) and how to connect.
 
-The web UI has:
+### The network drive
 
-- **Dashboard**: the Pi's model, address, uptime, temperature, power and
-  throttling warnings and free space on the card. Buttons to **Restart**
-  the Mac (as switching it off and on), **Reboot** BMMacintosh, **Shut
-  Down** (the Pi halts; switch it off, then on again to restart; a Pi 400
-  switches itself off, and its power key starts it again), and **Disable
-  Web UI** until the next reboot.
-- **Files**: browse the SD card; upload (or drag and drop) files into a
-  folder, download, rename, delete, and create folders. Clicking a disk
-  image **starts it**: the Mac starts again from it (on the Mac II a
-  floppy image goes in the floppy drive, a CD-ROM image in the CD-ROM
-  drive, a hard disk image becomes the first hard disk). `cmdline.txt`,
-  `config.txt`, `bmmac.cfg`, `macii.prefs` and `wpa_supplicant.conf` can
-  be **edited**
-  in the browser; changes take effect after a reboot, and the previous
-  version is kept as `.bak`.
+The card is at `http://<the Pi's address>/sd/`:
 
-Uploads can't overwrite `cmdline.txt`, `config.txt` or `wpa_supplicant.conf`
-(edit them instead), or anything in `firmware`. Everything else, including
-the kernels, can be replaced, so a new build of BMMacintosh can be uploaded and
-started with **Reboot**. A mistake in `cmdline.txt` or `config.txt` can stop
-the Pi starting, and then needs the card in a computer (the `.bak` copy
-makes that easy).
+- **Windows**: in File Explorer, right-click **This PC**, **Map network
+  drive…**, and enter `http://192.168.1.50/sd/` as the folder. Windows
+  only sends a password over HTTPS, so with a `webui_pin` set it won't
+  connect unless Windows is told to allow it (the `BasicAuthLevel` setting
+  of the WebClient service, `2`) — or leave the PIN off on a home network.
+- **macOS**: in the Finder, **Go ▸ Connect to Server…** (⌘K), enter
+  `http://192.168.1.50/sd/` and connect as a guest (or with any name and
+  the PIN). Files copied from the Mac keep their type, creator and
+  resource fork on the Mac II's *SD Card* disk: macOS writes them in `._`
+  files next to them, which BMMacintosh reads.
+- **Linux**: in Files, **Other Locations**, **Connect to Server**,
+  `dav://192.168.1.50/sd/`; or rclone, davfs2, cadaver or any other
+  WebDAV client with `http://192.168.1.50/sd/`.
 
-The web UI is open to anyone on your network. To protect it with a PIN, set
-`webui_pin=1234` in `cmdline.txt`; the browser then asks for a user name
-(anything) and the PIN. To network without the web UI, set `webui=0`.
+Files can be copied, renamed, moved and deleted, and folders made, as in
+any folder. When a file on the *SD Card* disk is renamed, moved or
+deleted, its Mac type, creator and resource fork (in `.finf` and `.rsrc`)
+go with it. A copy that breaks off leaves the file as it was.
+
+The boot configuration (`cmdline.txt`, `config.txt`,
+`wpa_supplicant.conf`, edited on the web page instead) and the `firmware`
+folder can be read but not changed. Everything else, including the
+kernels, can be replaced, so a new build of BMMacintosh can be copied over
+and started with **Reboot the Pi**.
+
+Things to know:
+
+- Don't replace or change a disk image the Mac is using: eject it, or
+  choose another in the menu, first.
+- Names on the card are in FAT's code page (CP850): a name with a
+  character it hasn't (the euro sign, Greek, Chinese, emoji) is refused.
+- The Pi answers one request at a time: a big copy slows the others, and
+  the Mac runs a little slower while the drive is busy.
+- Locks are granted but not enforced, and other properties (Windows's
+  file times) aren't kept: the card is meant for one computer at a time.
+
+### The web page
+
+- **The SD card on your computer**: the network drive's address, how to
+  connect from Windows, macOS and Linux, and the card's free space.
+- **The Mac**: **Restart the Mac** (as switching it off and on),
+  **Reboot the Pi**, **Shut down** (the Pi halts; switch it off, then on
+  again to restart; a Pi 400 switches itself off, and its power key starts
+  it again).
+- **Settings**: `config.txt`, `cmdline.txt`, `bmmac.cfg`, `macii.prefs` and
+  `wpa_supplicant.conf`, edited in the browser; changes take effect after
+  a reboot, and the previous version is kept as `.bak`. A mistake in
+  `cmdline.txt` or `config.txt` can stop the Pi starting, and then needs
+  the card in a computer (the `.bak` copy makes that easy).
+- **System**: the Pi's model, address, uptime, temperature, power and
+  throttling warnings, and a way to turn the web page and network drive
+  off until the next reboot.
+
+Disk images are started from BMMacintosh's own menu (F12): the web page's
+old file manager, which could also start them, is gone.
+
+The web page and the network drive are open to anyone on your network. To
+protect them with a PIN, set `webui_pin=1234` in `cmdline.txt`; the
+browser and the file manager then ask for a user name (anything) and the
+PIN. To network without either, set `webui=0`.
 
 ### The Mac II on the network
 
@@ -298,9 +336,9 @@ which the menu changes.
 | `ii_max_instructions` | number                     | `2000000` | The most instructions the Mac II runs in a frame |
 | `enable_logging`    | `off`, `uart`, `file`        | `off`    | Where the log goes (see Logging) |
 | `netprobe`          | `0`, `1`                     | `0`      | Mac II: tests its network once the Pi's is up (an address, then a name looked up) and logs the answers |
-| `network`           | `off`, `ethernet`, `wifi`    | `off`    | Networking (see Networking and the web UI) |
-| `webui`             | `0`, `1`                     | `1`      | Web UI when networking is on |
-| `webui_pin`         | digits                       | none     | PIN for the web UI |
+| `network`           | `off`, `ethernet`, `wifi`    | `off`    | Networking (see Networking, the network drive and the web UI) |
+| `webui`             | `0`, `1`                     | `1`      | Web page and network drive when networking is on |
+| `webui_pin`         | digits                       | none     | PIN for the web page and network drive |
 | `timezone`          | minutes east of UTC          | `0`      | Time zone for the network clock |
 | `usbpowerdelay`     | milliseconds                 | Circle's | Circle: wait for USB devices to power up (by default 300 ms, 510 ms behind a hub) |
 
@@ -318,8 +356,8 @@ where it goes with `enable_logging` in `cmdline.txt`:
 - **File**: the serial port, and `bmmac.log` in the root of the SD
   card. The file starts with what was logged since boot, is written to the
   card every few seconds (and is complete after a crash, a hang or
-  switching off), and starts again at boot once it is over 1 MB. Download
-  it from the web UI's file manager to send with a bug report. Writing it
+  switching off), and starts again at boot once it is over 1 MB. Copy it
+  from the network drive to send with a bug report. Writing it
   costs a little time on each frame, so switch it off once you have what
   you need.
 

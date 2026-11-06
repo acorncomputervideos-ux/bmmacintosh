@@ -1,45 +1,19 @@
-// Entry point: wires the modules together and switches between views.
+// Entry point: wires the modules together.
 //
 //   api.js        every /api/* call
-//   util.js       DOM lookup, formatting, path helpers
-//   machine.js    the running machine and what the web UI can do on it
-//   dashboard.js  status polling, hardware / storage meters, reboot & reset
-//   files.js      SD card file browser
-//   menu.js       pop-up menu for a file row's Actions button
-//   editor.js     overlay editor for config files
+//   util.js       DOM lookup and formatting
+//   machine.js    the running machine
+//   dashboard.js  status polling, the card's space, restart / reboot / shut down
+//   drive.js      the SD card as a network drive, and the settings files
+//   editor.js     overlay editor for the settings files
 
-import { $ } from "./util.js";
 import { initDashboard, refreshVolumes, startStatusPolling } from "./dashboard.js";
-import { initFiles, loadDir, filesHash, pathFromHash } from "./files.js";
+import { initDrive } from "./drive.js";
 import { initEditor } from "./editor.js";
 import { loadMachine } from "./machine.js";
 
-function route() {
-  const hash = location.hash || "#/dashboard";
-  const view = hash.startsWith("#/files") ? "files" : "dashboard";
-  $("view-dashboard").hidden = view !== "dashboard";
-  $("view-files").hidden = view !== "files";
-  $("fb-drop").hidden = view !== "files";
-
-  document.querySelectorAll(".nav-item[data-view]").forEach((el) => {
-    el.classList.toggle("active", el.dataset.view === view);
-  });
-
-  if (view === "files") {
-    loadDir(pathFromHash());
-  } else {
-    refreshVolumes();
-  }
-}
-
 initDashboard();
-initFiles();
 initEditor();
-
-$("qa-files").addEventListener("click", () => { location.hash = filesHash("/"); });
-window.addEventListener("hashchange", route);
-
-// The file actions depend on the machine, so know it before the first view.
-await loadMachine();
-route();
+await Promise.all([loadMachine(), initDrive()]);
+refreshVolumes();
 startStatusPolling();

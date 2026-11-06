@@ -40,14 +40,9 @@ export const shutdown = () => post("/api/shutdown", { headers: WEB_HEADER });
 export const hardReset = () => post("/api/reset");
 export const disableWebUi = () => post("/api/webui/disable");
 
-// ---- files ----
+// ---- the settings files (the editor; other files are the network drive's) ----
 
-// No vol: the first listing tells us which volume the device uses.
-export const listDir = (path) =>
-  getJson("/api/fs/list?path=" + encodeURIComponent(path));
-
-export const downloadUrl = (vol, path) =>
-  "/api/fs/download?" + fsQuery(vol, path);
+const downloadUrl = (vol, path) => "/api/fs/download?" + fsQuery(vol, path);
 
 // The file's bytes, as an ArrayBuffer.
 export async function readFile(vol, path) {
@@ -55,60 +50,9 @@ export async function readFile(vol, path) {
   return r.arrayBuffer();
 }
 
-// With `recursive`, a folder is deleted together with everything in it.
-export const deleteFile = (vol, path, { recursive = false } = {}) =>
-  post("/api/fs/delete?" + fsQuery(vol, path) + (recursive ? "&recursive=1" : ""),
-       recursive ? { headers: WEB_HEADER } : undefined);
-
-export const autostart = (vol, path) =>
-  post("/api/fs/autostart?" + fsQuery(vol, path));
-
 // Replace an editable config file with `text`.
 export const saveFile = (vol, path, text) =>
   post("/api/fs/save?" + fsQuery(vol, path), {
     headers: WEB_HEADER,
     body: text,
   });
-
-// Create the folder `path` (its parent must exist).
-export const makeDir = (vol, path) =>
-  post("/api/fs/mkdir?" + fsQuery(vol, path), { headers: WEB_HEADER });
-
-// Rename the file or folder at `path` to `newName`, in the same folder.
-export const renameEntry = (vol, path, newName) =>
-  post("/api/fs/rename?" + fsQuery(vol, path) +
-       "&to=" + encodeURIComponent(newName), { headers: WEB_HEADER });
-
-// The file's original modified time as local "YYYY-MM-DDTHH:MM:SS" (FAT
-// stores no time zone, and the file list shows the stored value as-is).
-function localMtime(file) {
-  if (!file.lastModified) return "";
-  const d = new Date(file.lastModified);
-  const p = (n) => String(n).padStart(2, "0");
-  return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) +
-    "T" + p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
-}
-
-// Upload `file` to `path`. XHR rather than fetch so we get progress events.
-// A rejected promise carries `.conflict = true` when the file already exists.
-export function upload(vol, path, file, { overwrite = false, onProgress } = {}) {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    const mtime = localMtime(file);
-    xhr.open("POST", "/api/fs/upload?" + fsQuery(vol, path) +
-      (mtime ? "&mtime=" + encodeURIComponent(mtime) : "") +
-      (overwrite ? "&overwrite=1" : ""));
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total);
-    };
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) { resolve(); return; }
-      const bodyText = (xhr.responseText || "").trim();
-      const err = new ApiError(xhr.status, bodyText);
-      if (xhr.status === 409 && /exist/i.test(bodyText)) err.conflict = true;
-      reject(err);
-    };
-    xhr.onerror = () => reject(new Error("network error"));
-    xhr.send(file);
-  });
-}

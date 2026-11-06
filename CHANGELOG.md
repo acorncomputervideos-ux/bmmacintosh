@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- The SD card is a network drive: Windows (Map network drive), macOS
+  (Connect to Server) and Linux file managers open
+  `http://<the Pi>/sd/` as a folder of their own (WebDAV,
+  `src/webui/webdav.cpp`), to copy, rename, move and delete files and make
+  folders. Uploads with a length or chunked (macOS), after
+  "100 Continue" (Windows), through a temporary file; a file's Mac type,
+  creator and resource fork go with it; the boot configuration and
+  `firmware` stay protected. `tools/webdav` tests it on the PC with curl,
+  rclone and litmus (the WebDAV test suite: all of its basic, copymove and
+  http tests but one name in a character FAT's code page hasn't)
+- The web page is one simple page instead of the file manager: the network
+  drive's address and how to connect, restarting the Mac and rebooting or
+  shutting down the Pi, the settings files' editor, and the Pi's status.
+  Light or dark as the computer is. Disk images are started from the
+  menu (F12) now
 - The Mac II's SD Card disk (the shared folder) no longer spoils files the
   Mac writes on a Pi. When a program saved over a file with less than it
   held, or the Mac moved past a file's end, FatFs (through circle-newlib)
