@@ -20,6 +20,7 @@
 #include "adb.h"
 #include "macos_util.h"
 #include "cpu_emulation.h"
+#include "cdrom.h"
 
 #include <sys/stat.h>
 
@@ -395,6 +396,12 @@ void emu_disk_request(int op, const char *path, int index, char *message, unsign
    from it. */
 void emu_autostart(const char *path)
 {
+	/* The startup device (Basilisk II puts these in the Mac's parameter RAM
+	   at each start): the CD-ROM driver for a CD, which the Mac doesn't
+	   start from otherwise; any for the rest (a startable floppy first,
+	   then the first hard disk with a System). */
+	PrefsReplaceInt32("bootdrive", 0);
+	PrefsReplaceInt32("bootdriver", is_cd_image(path) ? CDROMRefNum : 0);
 	if (is_cd_image(path)) {
 		PrefsReplaceString("cdrom", path);
 	} else if (is_floppy_image(path)) {

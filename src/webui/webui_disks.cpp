@@ -9,14 +9,16 @@
 //    "cdrom":"",
 //    "disk":"",                           (the Mac Plus's)
 //    "pending":false,"done":3,"result":"Tools.dsk is in the floppy drive.",
-//    "images":[{"path":"/disks/Tools.dsk","size":819200,"kind":"floppy"},...],
+//    "images":[{"path":"/disks/Tools.dsk","size":819200,"kind":"floppy",
+//               "startable":true},...],
 //    "more":false}                        (true when there were too many)
 //
 // The images are the disk images in the card's disks folder and the
 // folders in it. Each has the kind the Mac II takes it as: "cd" (.iso,
 // .toast, .cdr), "floppy" (400K, 800K or 1.4 MB, raw or DiskCopy 4.2) or
 // "hard"; the Mac Plus's are all "disk". Names are UTF-8 (the card's are
-// CP850, cp850.h).
+// CP850, cp850.h). "startable" says whether a Mac can start from it (it
+// has boot blocks; see Startable()).
 //
 // This file is part of BMMacintosh, a bare metal 68k Macintosh emulator for
 // the Raspberry Pi. See LICENSE for licensing details.
@@ -154,6 +156,62 @@ const char *Kind(const char *path, uint32_t size) {
   return "hard";
 }
 
+// ---- Whether a Mac can start from an image ----
+//
+// A disk a Mac starts from has boot blocks: its volume's first two bytes
+// are "LK". They are at the start of a plain image (after DiskCopy 4.2's
+// 84 bytes), or of an Apple_HFS partition of one with a partition map ("ER"
+// at its start, then a "PM" entry a block for each partition: hard disks
+// and most Mac CD-ROMs). Without them (an empty or data-only disk) the Mac
+// passes the disk by and starts from another, as a real one does.
+
+uint16_t Be16(const unsigned char *p) { return (uint16_t) (p[0] << 8 | p[1]); }
+uint32_t Be32(const unsigned char *p) {
+  return (uint32_t) p[0] << 24 | (uint32_t) p[1] << 16 | (uint32_t) p[2] << 8 | p[3];
+}
+
+// Reads LEN bytes at POS of an open image; false if it can't.
+bool ReadAt(sd_file *f, uint32_t pos, unsigned char *buf, unsigned len) {
+  unsigned got = 0;
+  return sd_seek(f, pos) == SD_OK && sd_read(f, buf, len, &got) == SD_OK && got == len;
+}
+
+bool HasBootBlocks(sd_file *f, uint32_t pos) {
+  unsigned char lk[2];
+  return ReadAt(f, pos, lk, 2) && lk[0] == 'L' && lk[1] == 'K';
+}
+
+bool Startable(const char *path, uint32_t size) {
+  sd_file *f = sd_open(path, SD_READ);
+  if (f == 0) return false;
+  bool yes = false;
+  uint32_t base = size % 512 == 84 ? 84 : 0;  // DiskCopy 4.2's header
+  unsigned char block[512];
+  if (HasBootBlocks(f, base)) {
+    yes = true;
+  } else if (ReadAt(f, 0, block, sizeof(block)) && block[0] == 'E' && block[1] == 'R') {
+    // A partition map: its entries are a block apart (the map's own block
+    // size: 512, or 2048 on some CD-ROMs).
+    uint32_t bs = Be16(block + 2);
+    if (bs != 512 && bs != 1024 && bs != 2048) bs = 512;
+    uint32_t entries = 1;
+    for (uint32_t i = 1; i <= entries && i <= 64 && !yes; i++) {
+      unsigned char pm[96];
+      if (!ReadAt(f, i * bs, pm, sizeof(pm)) || pm[0] != 'P' || pm[1] != 'M') break;
+      if (i == 1) entries = Be32(pm + 4);
+      char type[33];
+      memcpy(type, pm + 48, 32);
+      type[32] = '\0';
+      if (strcmp(type, "Apple_HFS") == 0) {
+        uint32_t start = Be32(pm + 8);
+        if (start < size / bs && HasBootBlocks(f, start * bs)) yes = true;
+      }
+    }
+  }
+  sd_close(f);
+  return yes;
+}
+
 struct Scan {
   Json *json;
   const char *folder;
@@ -191,8 +249,9 @@ int ScanOne(void *ctx, const sd_info *info) {
   }
   s->json->Raw(s->count == 0 ? "{\"path\":" : ",{\"path\":");
   s->json->String(path);
-  s->json->Printf(",\"size\":%lu,\"kind\":\"%s\"}", (unsigned long) info->size,
-                  Kind(path, info->size));
+  s->json->Printf(",\"size\":%lu,\"kind\":\"%s\",\"startable\":%s}",
+                  (unsigned long) info->size, Kind(path, info->size),
+                  Startable(path, info->size) ? "true" : "false");
   s->count++;
   return s->json->Full() ? 1 : 0;
 }
@@ -457,6 +516,11 @@ int WebUiDisksRequest(const char *query, char *out, unsigned size) {
     sd_info info;
     if (sd_stat_info(path, &info) != SD_OK || info.is_dir) {
       return Answer(out, size, 404, "That disk image isn't on the card.");
+    }
+    if (op == BMMAC_DISK_START && !Startable(path, info.size)) {
+      return Answer(out, size, 409,
+                    "The Mac can't start from that disk: it has no System on it "
+                    "(no boot blocks). Insert or add it instead.");
     }
     if (op == BMMAC_DISK_INSERT && !IsCd(path) && !IsFloppySize(info.size)) {
       return Answer(out, size, 400,

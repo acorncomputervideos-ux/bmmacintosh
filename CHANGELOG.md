@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- The web page's Disks offers Start from only for disks a Mac can start
+  from (with boot blocks: a System on them), and the server refuses the
+  rest with a message. An empty floppy was offered, and the Mac, as a real
+  one does, passed it by and started from its hard disk. Start from a
+  CD-ROM image now sets the Mac II's startup device to the CD-ROM driver
+  (Basilisk II's bootdriver), without which it never started from one;
+  starting from anything else sets it back to any
 - Floppy disks can be initialized on the Mac II: Mac OS asks the floppy
   driver to format the disk first, and BMMacintosh's `SysFormat()` always
   said it failed ("Initialization failed!"), so a new blank floppy from

@@ -45,6 +45,12 @@ function row(label, value, buttons = []) {
   return li;
 }
 
+// Whether a Mac can start from an image (it has a System: boot blocks).
+function startable(path) {
+  const img = state.images.find((i) => i.path === path);
+  return !!(img && img.startable);
+}
+
 function renderNow() {
   const box = $("disks-now");
   box.textContent = "";
@@ -54,7 +60,7 @@ function renderNow() {
     if (!state.hard.length) list.append(row("Hard disk", ""));
     state.hard.forEach((p, i) => {
       const acts = [];
-      if (i > 0) acts.push(button("Start from", () => start(p)));
+      if (i > 0 && startable(p)) acts.push(button("Start from", () => start(p)));
       acts.push(button("Remove", () => change("remove", { index: i },
         "Remove " + base(p) + " from the Mac's hard disks? (The file stays on the card.)")));
       list.append(row(i === 0 ? "Starts from" : "Hard disk " + (i + 1), p, acts));
@@ -82,7 +88,8 @@ function renderImages() {
   const images = state.images.slice().sort((a, b) =>
     a.path.localeCompare(b.path, undefined, { numeric: true, sensitivity: "base" }));
   $("disks-note").textContent = images.length
-    ? (state.more ? "The first " + images.length + " are shown." : "")
+    ? "Start from is offered for disks with a System on them." +
+      (state.more ? " The first " + images.length + " are shown." : "")
     : "None yet: copy disk images to the disks folder on the network drive.";
   const inUse = new Set([...state.hard, ...state.floppy, state.cdrom, state.disk].filter(Boolean));
   for (const img of images) {
@@ -102,7 +109,7 @@ function renderImages() {
     if (img.kind === "hard" && !state.hard.includes(img.path)) {
       acts.append(button("Add", () => change("add", { path: img.path })));
     }
-    acts.append(button("Start from", () => start(img.path)));
+    if (img.startable) acts.append(button("Start from", () => start(img.path)));
     const text = document.createElement("span");
     text.className = "img-text";
     text.append(name, meta);
