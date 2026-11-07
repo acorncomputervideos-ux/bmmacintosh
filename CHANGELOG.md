@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Each network drive request is logged with its outcome (status, and a
+  PUT's bytes received, or that it broke off), and the last 60 are at
+  `http://<the Pi>/api/davlog`
 - The network stays reachable: the web server gives up on a client that
   stops reading after 30 s (one could hold it for ever, and the web page
   and network drive were gone until a reboot); the Pi sends its router a

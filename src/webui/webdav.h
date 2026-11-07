@@ -38,6 +38,10 @@ public:
   int dav_slot = -1;
 };
 
+// Where each request's outcome is logged ("PUT /sd/x: 201, 1474560 bytes
+// in"); none when 0.
+extern void (*g_webdav_log)(const char *line);
+
 // Whether a request is the network drive's: a WebDAV method anywhere
 // (OPTIONS, PROPFIND, PUT, ...), or GET or HEAD under WEBDAV_PREFIX.
 bool WebDavWants(const char *method, const char *target);

@@ -294,6 +294,8 @@ const char *Reason(int status) {
   }
 }
 
+void NoteStatus(CWebDavConnection *c, int status);
+
 // A response written in pieces: a buffer at a time, chunked when its
 // length isn't known first.
 class Response {
@@ -304,6 +306,11 @@ public:
   // extra: more header lines, each ending in "\r\n" (or 0). length < 0:
   // chunked.
   void Begin(int status, const char *content_type, long length,
+             const char *extra = 0) {
+    NoteStatus(m_c, status);
+    BeginInner(status, content_type, length, extra);
+  }
+  void BeginInner(int status, const char *content_type, long length,
              const char *extra) {
     char header[768];
     int n = snprintf(header, sizeof(header),
@@ -725,13 +732,25 @@ struct PropRequest {
 // macOS Finder asks about folders while it uploads a file).
 struct Scratch {
   bool used;
+  int status;            // the response's, 0 when none was sent
+  long long received;    // a PUT's body bytes
   unsigned char io[kIoChunk];
   char xml[kXmlBodyMax + 1];
   PropRequest req;
 };
 Scratch s_scratch[WEBDAV_AT_ONCE];
 
+}  // namespace
+
+void (*g_webdav_log)(const char *line) = 0;
+
+namespace {
+
 Scratch &Of(CWebDavConnection *c) { return s_scratch[c->dav_slot]; }
+
+void NoteStatus(CWebDavConnection *c, int status) {
+  if (c->dav_slot >= 0) Of(c).status = status;
+}
 
 
 // The namespace a prefix stands for in an XML text: the nearest
@@ -1279,6 +1298,7 @@ void Put(CWebDavConnection *c, const char *path, Body *body) {
   }
   // Gathered a buffer at a time (see webui_fs.cpp's uploads). Shown on
   // the Pi's screen while it lasts (src/port/transfer.h).
+  Of(c).received = 0;
   int shown = transfer_begin(path, 1, body->Length());
   long long received = 0;
   unsigned buffered = 0;
@@ -1291,6 +1311,7 @@ void Put(CWebDavConnection *c, const char *path, Body *body) {
     }
     buffered += (unsigned) n;
     received += n;
+    Of(c).received = received;
     transfer_progress(shown, received);
     if (buffered == kIoChunk || (n == 0 && buffered > 0)) {
       if (sd_write(f, Of(c).io, buffered) != SD_OK) {
@@ -1754,8 +1775,26 @@ void WebDavHandle(CWebDavConnection *c, const char *method, const char *target,
     return;
   }
   s_scratch[slot].used = true;
+  s_scratch[slot].status = 0;
+  s_scratch[slot].received = -1;
   c->dav_slot = slot;
   HandleOne(c, method, target, request, body_data, body_len);
+  if (g_webdav_log != 0) {
+    char line[400];
+    const Scratch &s = s_scratch[slot];
+    int n = snprintf(line, sizeof(line), "%s %.250s: ", method, target);
+    if (n > 0 && (unsigned) n < sizeof(line)) {
+      if (s.status != 0) {
+        n += snprintf(line + n, sizeof(line) - n, "%d", s.status);
+      } else {
+        n += snprintf(line + n, sizeof(line) - n, "broken off (the client went, or sent nothing for 8 s)");
+      }
+    }
+    if (s.received >= 0 && n > 0 && (unsigned) n < sizeof(line)) {
+      snprintf(line + n, sizeof(line) - n, ", %lld bytes in", s.received);
+    }
+    g_webdav_log(line);
+  }
   s_scratch[slot].used = false;
   c->dav_slot = -1;
 }

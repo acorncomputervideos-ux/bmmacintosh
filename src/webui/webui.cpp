@@ -496,7 +496,34 @@ public:
   ~UiTurn(void) { s_ui_turn_taken = FALSE; }
 };
 
+// The network drive's last requests, for GET /api/davlog: what the Pi saw
+// of a copy that went wrong, without a log set up.
+const unsigned kDavLogLines = 60;
+char s_dav_log[kDavLogLines][160];
+unsigned s_dav_log_next;
+
+void LogDav(const char *line) {
+  CLogger::Get()->Write(WEBUI_LOG, LogNotice, "%s", line);
+  unsigned seconds = CTimer::Get()->GetUptime();
+  snprintf(s_dav_log[s_dav_log_next % kDavLogLines], sizeof(s_dav_log[0]),
+           "%3u:%02u:%02u  %s", seconds / 3600, seconds / 60 % 60, seconds % 60, line);
+  s_dav_log_next++;
+}
+
+void HandleDavLog(CSocket *socket) {
+  static char text[kDavLogLines * 162 + 200];
+  unsigned len = (unsigned) snprintf(text, sizeof(text),
+      "The network drive's last requests (time since the Pi started):\n\n");
+  unsigned first = s_dav_log_next > kDavLogLines ? s_dav_log_next - kDavLogLines : 0;
+  for (unsigned i = first; i < s_dav_log_next; i++) {
+    len += (unsigned) snprintf(text + len, sizeof(text) - len, "%s\n",
+                               s_dav_log[i % kDavLogLines]);
+  }
+  SendResponse(socket, 200, "OK", "text/plain; charset=utf-8", text, len);
+}
+
 boolean HandleConnection(CSocket *socket) {
+  g_webdav_log = LogDav;
   socket->SetOptionReceiveTimeout(WEBUI_RECV_TIMEOUT_US);
   // And for sending: a client that stops reading without going away (one
   // whose Mac went to sleep, or a Finder that gave up) mustn't hold a
@@ -572,6 +599,11 @@ boolean HandleConnection(CSocket *socket) {
 
   if (is_get && strcmp(target, "/api/status") == 0) {
     HandleStatus(socket);
+    return FALSE;
+  }
+
+  if (is_get && strcmp(target, "/api/davlog") == 0) {
+    HandleDavLog(socket);
     return FALSE;
   }
 

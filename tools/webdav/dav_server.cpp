@@ -81,7 +81,10 @@ static void handle(int fd) {
 	}
 }
 
+static void LogLine(const char *line) { fprintf(stderr, "%s\n", line); }
+
 int main(int argc, char **argv) {
+	g_webdav_log = LogLine;
 	if (argc != 3) {
 		fprintf(stderr, "usage: dav_server <folder> <port>\n");
 		return 2;
