@@ -685,11 +685,8 @@ void bmmac_idle(void)
    stop; the menu's Network can turn the pausing off. Each pause's total and
    speed go in the log. */
 
-#define TRANSFER_PAUSE_BYTES (256 * 1024)
+#define TRANSFER_PAUSE_BYTES (64 * 1024)
 #define TRANSFER_LINGER 2.0
-
-static int transfer_skip;            /* Esc: not until the transfers stop */
-static double transfer_seen;         /* when a transfer was last running */
 
 static void format_size(char *out, size_t size, double bytes)
 {
@@ -698,6 +695,39 @@ static void format_size(char *out, size_t size, double bytes)
 	else
 		snprintf(out, size, "%.1f MB", bytes / (1024.0 * 1024.0));
 }
+
+static int transfer_skip;            /* Esc: not until the transfers stop */
+static unsigned transfer_logged;     /* transfer_info's finished, logged */
+static char last_transfer[200];      /* the last one, for the menu and web page */
+static int last_paused;              /* whether the Mac was paused for it */
+
+const char *bmmac_last_transfer(void)
+{
+	return last_transfer;
+}
+
+/* Each transfer of 64 KB or more, when it has finished: in the log, and as
+   the last one (the menu's Network, the web page's System). */
+static void note_transfers(const struct transfer_info *t)
+{
+	char size[24];
+	const char *name;
+	if (t->finished == transfer_logged)
+		return;
+	transfer_logged = t->finished;
+	if (t->last_bytes < TRANSFER_PAUSE_BYTES)
+		return;
+	name = strrchr(t->last_name, '/');
+	name = name != NULL ? name + 1 : t->last_name;
+	format_size(size, sizeof size, (double) t->last_bytes);
+	snprintf(last_transfer, sizeof last_transfer, "%s %.60s, %s in %.1f s (%.0f KB/s)%s%s",
+	         t->last_upload ? "received" : "sent", name, size, t->last_seconds,
+	         t->last_seconds > 0.0 ? (double) t->last_bytes / 1024.0 / t->last_seconds : 0.0,
+	         t->last_ok ? "" : ", broken off",
+	         last_paused ? ", the Mac paused" : ", the Mac running");
+	printf("BMMacintosh: file transfer: %s\n", last_transfer);
+}
+static double transfer_seen;         /* when a transfer was last running */
 
 static void draw_transfer(const struct transfer_info *t, double rate, double elapsed)
 {
@@ -759,13 +789,17 @@ static int transfer_pause(void)
 	struct transfer_info t;
 	double now = host_time();
 	transfer_get(&t);
+	last_paused = FALSE;
+	note_transfers(&t);
 	if (t.active)
 		transfer_seen = now;
 	else if (transfer_skip && now - transfer_seen > TRANSFER_LINGER)
 		transfer_skip = FALSE;
+	/* 64 KB or more, or a size not given (a chunked upload: macOS's). */
 	if (!t.active || transfer_skip || !bmmac_setting_on("transfer_pause", TRUE)
-	    || (t.total < 512 * 1024 && t.done < TRANSFER_PAUSE_BYTES))
+	    || (t.total >= 0 && t.total < TRANSFER_PAUSE_BYTES && t.done < TRANSFER_PAUSE_BYTES))
 		return FALSE;
+	last_paused = TRUE;
 
 	int was_open = osd_is_open();
 	double start = now, last_draw = 0.0, rate = 0.0, rate_time = now, idle_since = 0.0;
@@ -777,6 +811,7 @@ static int transfer_pause(void)
 	printf("BMMacintosh: the Mac paused for a file transfer\n");
 	for (;;) {
 		transfer_get(&t);
+		note_transfers(&t);
 		now = host_time();
 		/* Bytes moved since the pause began. */
 		moved = t.bytes + (t.active ? t.done : 0) - base;

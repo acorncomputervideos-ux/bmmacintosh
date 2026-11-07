@@ -38,6 +38,12 @@ struct transfer_info {
 	unsigned files;
 	long long bytes;
 	int failed;               /* how many broke off */
+	/* The last one finished (or broken off): finished goes up with each. */
+	unsigned finished;
+	char last_name[256];
+	int last_upload, last_ok;
+	long long last_bytes;
+	double last_seconds;
 };
 void transfer_get(struct transfer_info *info);
 void transfer_session_reset(void);

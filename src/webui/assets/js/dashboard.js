@@ -97,6 +97,7 @@ async function pollStatus() {
     $("i-ver").textContent = s.version
       ? "BMMacintosh " + s.version + (s.git ? " (" + s.git + ")" : "") : "—";
     $("i-uptime").textContent = fmtUptime(s.uptime_secs);
+    $("i-transfer").textContent = s.last_transfer || "none yet";
 
     if (rebooting) {
       rebooting = false;

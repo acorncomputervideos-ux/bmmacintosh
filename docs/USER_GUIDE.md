@@ -262,15 +262,15 @@ Things to know:
   choose another in the menu, first.
 - Names on the card are in FAT's code page (CP850): a name with a
   character it hasn't (the euro sign, Greek, Chinese, emoji) is refused.
-- While a big file (512 KB or more) is copied to or from the card, the Mac
+- While a file of 64 KB or more is copied to or from the card, the Mac
   pauses and the Pi's screen shows the transfer: the file, how far it has
   got, the speed and the time left. The network then has the Pi to itself;
   sharing it with the Mac, Wi-Fi above all was very slow. The Mac carries
   on 2 seconds after the last file, so a folder of files is one pause.
   **Esc** lets the Mac run meanwhile (the transfer is slower then), and
   *Pause the Mac During Transfers* in the menu's Network turns the pausing
-  off. Each pause's size, time and speed are written to the log
-  (`bmmac.log`).
+  off. Each transfer's size, time and speed are on the web page (System,
+  *Last transfer*), in the menu's Network, and in the log (`bmmac.log`).
 - The Pi answers one request at a time: a big copy slows the others.
 - Locks are granted but not enforced, and other properties (Windows's
   file times) aren't kept: the card is meant for one computer at a time.

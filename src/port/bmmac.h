@@ -113,6 +113,9 @@ const char *bmmac_disk_result(int *pending, unsigned *done);
 /* A path as on the card ("/disks/x.dsk") for a full one; "" when it isn't
    on the card. */
 void bmmac_card_relative(const char *full, char *out, unsigned size);
+/* The last file transfer of 64 KB or more ("received x.dsk, 5.0 MB in
+   12.3 s (416 KB/s), the Mac paused"), or "". */
+const char *bmmac_last_transfer(void);
 /* Gives the Mac the mouse's movement since the last call, smoothed (see
    frontend.c): called several times a frame by the emulators. */
 void bmmac_mouse_tick(void);

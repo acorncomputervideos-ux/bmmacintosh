@@ -1284,9 +1284,13 @@ void Put(CWebDavConnection *c, const char *path, Body *body) {
         break;
       }
       buffered = 0;
+      // Others' turn after each block written, not after each packet
+      // read: Receive() waits (letting them run) when nothing has come,
+      // and handing over with data waiting let the Mac run between every
+      // 1.4 KB, which held uploads to tens of KB a second.
+      c->Yield();
     }
     if (n == 0) break;
-    c->Yield();
   }
   if (sd_close(f) != SD_OK && status == 0) status = 507;
   transfer_end(status == 0);

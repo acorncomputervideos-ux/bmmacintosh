@@ -71,6 +71,7 @@ extern "C" int circle_get_network_ip_address(char *address,
 // images so their last writes reach the card), and a cold start.
 extern "C" void bmmac_request_power(int power_off);
 extern "C" void bmmac_request_coldstart(void);
+extern "C" const char *bmmac_last_transfer(void);
 // The Mac II's shared clipboard (src/port/ii/clip_ii.cpp).
 extern "C" const char *emu_clipboard_text(int *from_mac);
 extern "C" int emu_clipboard_set(const char *utf8, unsigned length);
@@ -261,18 +262,21 @@ void HandleStatus(CSocket *socket) {
 
   char machine[128];
   JsonText(WebUiMachineName(), machine, sizeof(machine));
+  // The last file transfer's size, time and speed (src/port/frontend.c).
+  char last[400];
+  JsonText(bmmac_last_transfer(), last, sizeof(last));
 
-  char body[1024];
+  char body[1400];
   int length = snprintf(
       body, sizeof(body),
       "{\"hostname\":\"%s\",\"version\":\"%s\",\"git\":\"%s\",\"machine\":\"%s\","
       "\"model\":\"%s\",\"ip\":\"%s\",\"net_status\":%d,\"net_text\":\"%s\","
       "\"uptime_secs\":%u,\"soc_temp_c\":%s,\"throttled\":%s,"
-      "\"caps\":%s}",
+      "\"last_transfer\":\"%s\",\"caps\":%s}",
       WEBUI_HOSTNAME, BMMAC_VERSION, BMMAC_GIT, machine,
       model != 0 ? model : "",
       have_ip ? ip : "", net_status, NetStatusText(net_status), uptime,
-      soc_temp, throttled, caps);
+      soc_temp, throttled, last, caps);
   if (length < 0 || (unsigned) length >= sizeof(body)) {
     SendText(socket, 500, "Internal Server Error", "status encode error\n");
     return;

@@ -26,6 +26,13 @@
 
 extern "C" void sd_posix_root(const char *path);
 
+// The clock src/port/transfer.c times transfers with (the kernel's on the Pi).
+extern "C" double host_time(void) {
+	struct timeval tv;
+	gettimeofday(&tv, 0);
+	return tv.tv_sec + tv.tv_usec / 1e6;
+}
+
 class SocketConnection : public CWebDavConnection {
 public:
 	explicit SocketConnection(int fd) : m_fd(fd) {}

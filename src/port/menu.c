@@ -465,7 +465,7 @@ static void network_menu(void)
 	static const char *const device_names[] = {"Off", "Ethernet", "Wi-Fi", NULL};
 	int sel = 0, first = TRUE;
 	for (;;) {
-		char status[64], tz[16], address[64], web[96], drive[96], mac_net[128];
+		char status[64], tz[16], address[64], web[96], drive[96], mac_net[128], xfer[220];
 		const char *net = host_option("network", "off");
 		const char *pin = host_option("webui_pin", "");
 		int device = strcmp(net, "ethernet") == 0 ? 1 : strcmp(net, "wifi") == 0 ? 2 : 0;
@@ -481,6 +481,9 @@ static void network_menu(void)
 			snprintf(web, sizeof(web), "Web page: http://%s/", address);
 			snprintf(drive, sizeof(drive), "Network drive: http://%s/sd/", address);
 		}
+		xfer[0] = '\0';
+		if (bmmac_last_transfer()[0])
+			snprintf(xfer, sizeof(xfer), "Last: %.72s", bmmac_last_transfer());
 		if (emu_network_text() != NULL)
 			snprintf(mac_net, sizeof(mac_net), "The Mac's network: %s", emu_network_text());
 		if (minutes == 0)
@@ -493,6 +496,7 @@ static void network_menu(void)
 				{web, NULL, OSD_ITEM_LABEL, -1},
 				{drive, NULL, OSD_ITEM_LABEL, -1},
 				{mac_net, NULL, OSD_ITEM_LABEL, -1},
+				{xfer, NULL, OSD_ITEM_LABEL, -1},
 				{"", NULL, OSD_ITEM_LABEL, -1},
 				{"Network", device_names[device], OSD_ITEM_SUBMENU, N_DEVICE},
 				{"Scan for Wi-Fi Networks", NULL, OSD_ITEM_SUBMENU, N_SCAN},
@@ -514,7 +518,7 @@ static void network_menu(void)
 			int n = 0;
 			for (i = 0; i < (int) (sizeof(items) / sizeof(items[0])); i++) {
 				const char *t = items[i].text;
-				if ((t == web || t == drive || t == mac_net) && t[0] == '\0')
+				if ((t == web || t == drive || t == mac_net || t == xfer) && t[0] == '\0')
 					continue;
 				if (first && items[i].id == N_DEVICE)
 					sel = n;

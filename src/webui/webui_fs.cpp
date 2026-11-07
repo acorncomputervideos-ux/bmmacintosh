@@ -377,8 +377,10 @@ BodyResult ReceiveBodyToFile(CSocket *socket, const char *temppath,
         break;
       }
       buffered = 0;
+      // Others' turn after each block, not each packet (see webdav.cpp's
+      // Put()): Receive() waits when nothing has come.
+      CScheduler::Get()->Yield();
     }
-    CScheduler::Get()->Yield();
   }
 
   transfer_end(result == BODY_OK);

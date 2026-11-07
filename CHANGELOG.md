@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Uploads to the network drive (and the web page) gave the processor away
+  after every packet read (1.4 KB): with data waiting, that let the Mac run
+  between each, and held uploads to tens of KB a second. They hand over
+  after each 32 KB written to the card now; reading waits anyway when
+  nothing has come
+- The transfer window comes for any transfer of 64 KB or more, and at
+  once for an upload of unknown size (macOS's), where it waited for 256 KB
+  (half a minute at the old speed)
+- Each transfer of 64 KB or more is timed: its size, time and speed, and
+  whether the Mac was paused, are on the web page (System, Last transfer),
+  in the menu's Network, and in the log
 - Eject on the web page's Disks (the Mac II's floppy drives and CD-ROM
   drive). Mac OS is asked, as dragging the disk to the Trash does
   (UnmountVol, then Eject), when it is next idle: Basilisk II's

@@ -227,7 +227,7 @@ for d in xfer_big xfer_small xfer_esc; do ln -s "$OUT/empty" "$OUT/$d/roms"; don
 run "$II" xfer_big 60 "" '100 xfer up 5242880 /disks/a.dsk\n110 xfer progress 2621440\n120 shot during.ppm\n130 xfer progress 5242880\n131 xfer end\n400 quit\n'
 check_log xfer_big "the Mac paused for a file transfer" "a big transfer pauses the Mac"
 check_log xfer_big "file transfer: 1 file, 5.0 MB" "... and the log has its size and speed"
-run "$II" xfer_small 60 "" '100 xfer begin 102400 /disks/small.txt\n101 xfer progress 102400\n102 xfer end\n300 quit\n'
+run "$II" xfer_small 60 "" '100 xfer begin 40960 /disks/small.txt\n101 xfer progress 40960\n102 xfer end\n300 quit\n'
 if grep -q "paused for a file transfer" "$OUT/xfer_small/log.txt"; then
     fail xfer_small "a small transfer paused the Mac"
 else
