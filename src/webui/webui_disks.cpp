@@ -488,6 +488,7 @@ int WebUiDisksRequest(const char *query, char *out, unsigned size) {
   else if (strcmp(op_text, "insert") == 0) op = BMMAC_DISK_INSERT;
   else if (strcmp(op_text, "add") == 0) op = BMMAC_DISK_ADD;
   else if (strcmp(op_text, "remove") == 0) op = BMMAC_DISK_REMOVE;
+  else if (strcmp(op_text, "eject") == 0) op = BMMAC_DISK_EJECT;
   else return Answer(out, size, 400, "Unknown change.");
 
   bool ii = emu_machine() == BMMAC_II;
@@ -497,7 +498,17 @@ int WebUiDisksRequest(const char *query, char *out, unsigned size) {
 
   char path[600] = "";
   int index = 0;
-  if (op == BMMAC_DISK_REMOVE) {
+  if (op == BMMAC_DISK_EJECT) {
+    char text[16];
+    char *end;
+    if (!QueryValue(query, "index", text, sizeof(text))) {
+      return Answer(out, size, 400, "Which drive? (index: 0 or 1 a floppy drive, 2 the CD-ROM)");
+    }
+    index = (int) strtol(text, &end, 10);
+    if (*end != '\0' || index < 0 || index > 2) {
+      return Answer(out, size, 400, "No such drive.");
+    }
+  } else if (op == BMMAC_DISK_REMOVE) {
     char text[16];
     char *end;
     if (!QueryValue(query, "index", text, sizeof(text))) {

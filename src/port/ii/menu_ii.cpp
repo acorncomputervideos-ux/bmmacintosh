@@ -21,10 +21,12 @@
 #include "macos_util.h"
 #include "cpu_emulation.h"
 #include "cdrom.h"
+#include "sony.h"
 
 #include <sys/stat.h>
 
 #include "../bmmac.h"
+#include "../../host.h"
 #include "ii.h"
 
 bool ii_insert_disk(const char *path, bool cdrom);
@@ -314,6 +316,13 @@ int emu_menu_choose(int id)
 
 /* ---- The web page's Disks ------------------------------------------------------------ */
 
+/* An eject the web page asked for, waiting for Mac OS to be idle (see
+   "Ejecting" below). */
+static int eject_slot = -1;          /* 0, 1: a floppy drive; 2: the CD */
+static double eject_asked;
+static char eject_name[64];
+
+
 void emu_disks(struct bmmac_disks *d)
 {
 	memset(d, 0, sizeof *d);
@@ -372,6 +381,22 @@ void emu_disk_request(int op, const char *path, int index, char *message, unsign
 		snprintf(message, size, "%s is a hard disk when the Mac restarts.", name);
 		return;
 	}
+	case BMMAC_DISK_EJECT: {
+		const char *in = index == 2 ? PrefsFindString("cdrom") : ii_floppy_name(index);
+		if (index < 0 || index > 2 || in == NULL || in[0] == '\0') {
+			snprintf(message, size, "There is no disk in that drive.");
+			return;
+		}
+		if (!HasMacStarted()) {
+			snprintf(message, size, "The Mac isn't running: start it first.");
+			return;
+		}
+		eject_slot = index;
+		eject_asked = host_time();
+		snprintf(eject_name, sizeof eject_name, "%s", bmmac_base_name(in));
+		snprintf(message, size, "Ejecting %s when the Mac is next idle...", eject_name);
+		return;
+	}
 	case BMMAC_DISK_REMOVE: {
 		const char *s = PrefsFindString("disk", index);
 		if (index < 0 || s == NULL) {
@@ -387,6 +412,96 @@ void emu_disk_request(int op, const char *path, int index, char *message, unsign
 	}
 	}
 	snprintf(message, size, "Unknown request.");
+}
+
+/* ---- Ejecting, from the web page ----------------------------------------------------
+   Pulling an image out under Mac OS would leave it a volume that isn't
+   there (and a floppy's last writes lost). Mac OS is asked instead, as
+   dragging the disk to the Trash does: UnmountVol, then Eject. Its File
+   and Memory Managers may be busy when the web page asks, so it is done
+   when Mac OS is next idle (SynchIdleTime(), timer_ii.cpp's idle_wait()):
+   in a program's place, as a program would. If Mac OS isn't idle within a
+   few seconds (a program busy, or a System the patch didn't fit), the web
+   page is told to eject it on the Mac. */
+
+
+/* The Mac's drive number for a slot: the drive queue's floppy drives
+   (Sony's) are in the order sys_ii.cpp opened them, as ii_floppy_name()
+   counts them; the CD-ROM drive is CDROMRefNum's. 0 if none. */
+static int drive_number(int slot)
+{
+	int16 refnum = slot == 2 ? CDROMRefNum : SonyRefNum;
+	int k = 0;
+	for (uint32 q = ReadMacInt32(0x308 + 2); q != 0; q = ReadMacInt32(q)) {
+		if ((int16) ReadMacInt16(q + 8) != refnum)
+			continue;
+		if (slot == 2 || k++ == slot)
+			return (int16) ReadMacInt16(q + 6);
+	}
+	return 0;
+}
+
+void ii_idle(void)
+{
+	if (eject_slot < 0)
+		return;
+	if (ReadMacInt16(0x360) != 0)        /* FSBusy: the File Manager is at work */
+		return;
+	int slot = eject_slot, drive = drive_number(slot);
+	eject_slot = -1;
+	char text[160];
+	if (drive == 0) {
+		snprintf(text, sizeof text, "The Mac has no such drive.");
+		bmmac_disk_note(text);
+		return;
+	}
+	M68kRegisters r;
+	r.d[0] = 80;
+	Execute68kTrap(0xa71e, &r);           /* NewPtrSysClear: a parameter block */
+	uint32 pb = r.a[0];
+	if (pb == 0) {
+		bmmac_disk_note("The Mac is out of memory: eject it on the Mac (Command-E).");
+		return;
+	}
+	WriteMacInt16(pb + 22, drive);        /* ioVRefNum: the drive */
+	r.a[0] = pb;
+	Execute68kTrap(0xa00e, &r);           /* UnmountVol */
+	int16 err = (int16) r.d[0];
+	/* -35 (nsvErr): no volume on it (an empty or unreadable disk): eject
+	   it all the same. */
+	if (err != 0 && err != -35) {
+		if (err == -47)                   /* fBsyErr */
+			snprintf(text, sizeof text, "%s is in use on the Mac: close its files "
+			         "and windows, then eject it again.", eject_name);
+		else
+			snprintf(text, sizeof text, "The Mac couldn't put %s away (error %d): "
+			         "eject it on the Mac (Command-E).", eject_name, err);
+	} else {
+		WriteMacInt16(pb + 22, drive);
+		r.a[0] = pb;
+		Execute68kTrap(0xa017, &r);       /* Eject */
+		err = (int16) r.d[0];
+		if (err == 0)
+			snprintf(text, sizeof text, "%s is ejected.", eject_name);
+		else
+			snprintf(text, sizeof text, "The Mac couldn't eject %s (error %d).",
+			         eject_name, err);
+	}
+	r.a[0] = pb;
+	Execute68kTrap(0xa01f, &r);           /* DisposePtr */
+	bmmac_disk_note(text);
+}
+
+/* Called each frame: an eject Mac OS hasn't had the time for. */
+void ii_eject_check(void)
+{
+	if (eject_slot >= 0 && host_time() - eject_asked > 5.0) {
+		eject_slot = -1;
+		char text[160];
+		snprintf(text, sizeof text, "The Mac was too busy to eject %s: eject it on the "
+		         "Mac (drag it to the Trash, or Command-E).", eject_name);
+		bmmac_disk_note(text);
+	}
 }
 
 /* ---- Starting from a disk ------------------------------------------------------------- */

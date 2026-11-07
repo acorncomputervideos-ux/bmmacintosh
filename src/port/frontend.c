@@ -605,6 +605,13 @@ void bmmac_card_relative(const char *full, char *out, unsigned size)
 	}
 }
 
+void bmmac_disk_note(const char *text)
+{
+	snprintf(disk_result, sizeof disk_result, "%s", text);
+	printf("Web UI: %s\n", disk_result);
+	disks_done++;
+}
+
 int bmmac_pending_requests(void)
 {
 	return request_power >= 0 || request_coldstart || request_disk;

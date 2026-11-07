@@ -104,6 +104,9 @@ void bmmac_request_coldstart(void);
 /* The web page's change to the disks (BMMAC_DISK_*, PATH on the card,
    "/disks/x.dsk"), done between frames. FALSE while another waits. */
 int bmmac_disk_interrupt(int op, const char *card_path, int index);
+/* Later news of the last one (an eject done when the Mac was next idle):
+   the new result, and "done" goes up again. */
+void bmmac_disk_note(const char *text);
 /* What the last one did ("" before any), whether one waits, and how many
    have been done. */
 const char *bmmac_disk_result(int *pending, unsigned *done);
@@ -275,6 +278,7 @@ enum {
 	BMMAC_DISK_INSERT,     /* the Mac II: PATH into a floppy or the CD-ROM drive */
 	BMMAC_DISK_ADD,        /* the Mac II: PATH a hard disk from its next start */
 	BMMAC_DISK_REMOVE,     /* the Mac II: hard disk INDEX no more */
+	BMMAC_DISK_EJECT,      /* the Mac II: eject floppy drive INDEX (0, 1) or the CD (2) */
 };
 /* Does one, between frames: PATH is the image's full path. Writes what
    happened, for the web page, to MESSAGE. */

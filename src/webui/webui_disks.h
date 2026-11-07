@@ -4,6 +4,7 @@
 //
 //   GET /api/disks   -> WebUiDisksJson()
 //   POST /api/disks?op=start|insert|add|remove&path=/disks/x.dsk&index=N
+//   POST /api/disks?op=eject&index=N   (0, 1 a floppy drive; 2 the CD-ROM)
 //   POST /api/disks?op=new&name=Work&kind=floppy|hard&size=BYTES
 //                    -> WebUiDisksRequest()
 //

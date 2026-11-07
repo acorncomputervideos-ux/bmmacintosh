@@ -285,8 +285,10 @@ Things to know:
   it again).
 - **Disks**: the Mac's disks now, and the disk images in the card's
   `disks` folder (and the folders in it). On the Mac II, **Insert** puts
-  a floppy or CD-ROM image in a drive while the Mac runs (eject it on the
-  Mac, Command-E), **Add** makes a hard disk image one of its hard disks
+  a floppy or CD-ROM image in a drive while the Mac runs, **Eject** asks
+  Mac OS to put one away (as dragging it to the Trash does: when Mac OS is
+  next idle, and not while a file on it is open), **Add** makes a hard
+  disk image one of its hard disks
   and **Remove** takes one off (from the Mac's next start), and **Start
   from** restarts the Mac from any image. On the Mac Plus, **Start from**
   changes its one disk and restarts it. **New disk image** (the Mac II)

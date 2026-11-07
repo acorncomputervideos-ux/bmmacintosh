@@ -33,8 +33,14 @@ void Delay_usec(uint64 usec)
 	host_sleep_us((unsigned) usec);
 }
 
+/* Mac OS is idle (Basilisk II's SynchIdleTime() patch, no events
+   waiting): no sleeping here, but the moment for what must run as a
+   program would (menu_ii.cpp's ejects). */
+void ii_idle(void);
+
 void idle_wait(void)
 {
+	ii_idle();
 }
 
 void idle_resume(void)

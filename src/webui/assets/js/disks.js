@@ -65,14 +65,17 @@ function renderNow() {
         "Remove " + base(p) + " from the Mac's hard disks? (The file stays on the card.)")));
       list.append(row(i === 0 ? "Starts from" : "Hard disk " + (i + 1), p, acts));
     });
-    list.append(row("Floppy drive 1", state.floppy[0]));
-    list.append(row("Floppy drive 2", state.floppy[1]));
-    list.append(row("CD-ROM drive", state.cdrom));
+    const ejectable = (label, path, index) =>
+      list.append(row(label, path, path ? [button("Eject", () => eject(index, path))] : []));
+    ejectable("Floppy drive 1", state.floppy[0], 0);
+    ejectable("Floppy drive 2", state.floppy[1], 1);
+    ejectable("CD-ROM drive", state.cdrom, 2);
     box.append(list);
     const note = document.createElement("p");
     note.className = "note";
     note.textContent = "Hard disk changes take effect when the Mac restarts. " +
-      "Floppies and CD-ROMs go in now; eject them on the Mac (Command-E).";
+      "Floppies and CD-ROMs go in now; Eject asks the Mac to put one away, " +
+      "as dragging it to the Trash does.";
     box.append(note);
   } else {
     list.append(row("Disk", state.disk));
@@ -149,6 +152,39 @@ async function makeDisk(ev) {
   if ($("new-use").checked) {
     await change(kind === "floppy" ? "insert" : "add", { path: made.path });
   }
+}
+
+// Mac OS ejects it when it is next idle: wait for the drive to empty, or
+// for the Mac's answer (a second "done": in use, or too busy).
+async function eject(index, path) {
+  if (busy) return;
+  busy = true;
+  render();
+  setMsg("Asking the Mac to eject " + base(path) + "…");
+  const slot = (s) => (index === 2 ? s.cdrom : s.floppy[index]);
+  try {
+    const before = state.done;
+    await api.diskRequest("eject", { index });
+    let seen = -1;
+    for (let i = 0; i < 32; i++) {
+      await new Promise((r) => setTimeout(r, 250));
+      const s = await api.getDisks();
+      if (s.pending) continue;
+      if (seen < 0 && s.done !== before) {
+        seen = s.done;          // queued: "Ejecting … when the Mac is next idle"
+        setMsg(s.result);
+      }
+      if (seen >= 0 && (s.done !== seen || !slot(s))) {
+        state = s;
+        setMsg(s.result);
+        break;
+      }
+    }
+  } catch (e) {
+    setMsg(e.status && e.message ? e.message.replace(/^HTTP \d+ /, "") : "Couldn't ask the Mac — " + e.message, true);
+  }
+  busy = false;
+  await refresh();
 }
 
 function start(path) {

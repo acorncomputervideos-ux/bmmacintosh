@@ -49,7 +49,9 @@ void AddPlatformPrefsDefaults(void)
 	PrefsReplaceString("screen", "win/640/480");
 	PrefsReplaceInt32("displaycolordepth", 8);
 	PrefsReplaceInt32("frameskip", 0);
-	PrefsReplaceBool("idlewait", false);
+	/* Basilisk II's SynchIdleTime() patch: the web page's ejects are done
+	   when Mac OS is idle (menu_ii.cpp). idle_wait() doesn't sleep. */
+	PrefsReplaceBool("idlewait", true);
 	PrefsReplaceBool("nonet", false);
 }
 

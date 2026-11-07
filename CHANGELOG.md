@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Eject on the web page's Disks (the Mac II's floppy drives and CD-ROM
+  drive). Mac OS is asked, as dragging the disk to the Trash does
+  (UnmountVol, then Eject), when it is next idle: Basilisk II's
+  SynchIdleTime() patch (idlewait, on now; BMMacintosh's idle_wait()
+  doesn't sleep) runs it in a program's place, where the File and Memory
+  Managers are free. A disk with a file open stays in ("in use"), and if
+  Mac OS isn't idle within 5 seconds the page says to eject it on the Mac
 - The Mac pauses during big file transfers (the network drive's and the web
   page's, 512 KB or more): a window on the Pi's screen shows the file, the
   progress, the speed and the time left, and the network has the Pi's core

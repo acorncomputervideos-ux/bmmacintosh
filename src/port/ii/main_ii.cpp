@@ -247,6 +247,7 @@ static void frame(void)
 	ii_audio_frame();
 	bmmac_frame();
 	ii_adb_frame();
+	ii_eject_check();
 	adjust_budget(cpu_time);
 	if (restart_requested) {
 		restart_requested = false;
@@ -398,6 +399,9 @@ void emu_main(void)
 	char why[256];
 
 	PrefsInit(NULL, argc, argv);
+	/* Whatever macii.prefs says: the web page's ejects need Mac OS's idle
+	   time (prefs_ii.cpp). */
+	PrefsReplaceBool("idlewait", true);
 	max_budget = host_option_int("ii_max_instructions", 2000000);
 	if (max_budget < 100000)
 		max_budget = 100000;
