@@ -469,6 +469,14 @@ void plus_via_init(struct via_cb *cb)
 	via_init(&mine);
 }
 
+/* umac moves the mouse a count each 5 ms step (umac_loop()), and drops
+   what is more than 30 counts ahead: bmmac_mouse_tick() gives it one a
+   step, after each. */
+int emu_mouse_step_max(void)
+{
+	return 1;
+}
+
 void emu_mouse(int dx, int dy, int buttons)
 {
 	mouse_button = buttons & 1;
@@ -704,6 +712,7 @@ void emu_main(void)
 				int stopped = umac_loop();
 				answer_instant();
 				host_poll_tasks();
+				bmmac_mouse_tick();
 				if (stopped) {
 					printf("BMMacintosh: umac stopped\n");
 					bmmac_stopped("The Mac has stopped (umac could not go on).\n"

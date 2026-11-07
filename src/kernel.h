@@ -107,7 +107,7 @@ public:
   unsigned KeyModifiers(void);
   int PadState(int pad);
   int PadAxis(int pad, int axis);
-  int MouseRead(int *dx, int *dy, int *buttons);
+  int MouseSample(double *x, double *y, int *buttons);
   int GpioJoystick(int port);
   double Time(void);
   void Reboot(void);
@@ -224,9 +224,6 @@ private:
   // The mouse (all USB mice are "mouse1"). The USB interrupt adds up how
   // far it moves; the emulator takes the sums.
   CMouseDevice *m_pMouse;
-  volatile int m_MouseDx;
-  volatile int m_MouseDy;
-  volatile int m_MouseButtons;
 
   bool m_bGPIOJoysticks;
   CGPIOPin *m_pJoyPins[2][5];

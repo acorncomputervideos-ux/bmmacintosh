@@ -263,6 +263,36 @@ static void video_menu(void)
 
 /* ---- Sound ---------------------------------------------------------------- */
 
+/* ---- Mouse ------------------------------------------------------------------ */
+
+/* The USB mouse's speed on the Mac (frontend.c's bmmac_mouse_tick()). A
+   modern mouse counts 800 or more steps an inch, where the Macs' counted
+   about 100: the slower ones bring it nearer, with Mac OS's own Mouse
+   control panel for the rest. */
+static const char *const mouse_names[] = {
+	"Slowest (1/4)", "Slower (1/2)", "Slow (3/4)", "Normal", "Fast (1.5x)", "Faster (2x)", NULL
+};
+static const char *const mouse_values[] = {"0.25", "0.5", "0.75", "1", "1.5", "2"};
+
+static int mouse_speed_index(void)
+{
+	double speed = host_option_double("mouse_speed", 1.0);
+	int i, best = 3;
+	for (i = 0; i < 6; i++) {
+		double v = atof(mouse_values[i]);
+		if (speed > v - 0.01 && speed < v + 0.01)
+			best = i;
+	}
+	return best;
+}
+
+static void mouse_menu(void)
+{
+	int i = osd_choose("Mouse Speed", mouse_names, mouse_speed_index());
+	if (i >= 0)
+		save_setting("mouse_speed", mouse_values[i]);
+}
+
 static void sound_menu(void)
 {
 	enum { S_VOLUME, S_OUTPUT };
@@ -611,7 +641,7 @@ static void offer_reboot(void)
 
 void bmmac_menu(void)
 {
-	enum { M_MACHINE = 1, M_VIDEO, M_SOUND, M_NETWORK, M_ABOUT, M_REBOOT, M_OFF };
+	enum { M_MACHINE = 1, M_VIDEO, M_SOUND, M_MOUSE, M_NETWORK, M_ABOUT, M_REBOOT, M_OFF };
 	static int sel = 0;
 	char title[48], speed[48];
 
@@ -627,6 +657,7 @@ void bmmac_menu(void)
 			 OSD_ITEM_SUBMENU, M_MACHINE},
 			{"Video", NULL, OSD_ITEM_SUBMENU, M_VIDEO},
 			{"Sound", NULL, OSD_ITEM_SUBMENU, M_SOUND},
+			{"Mouse Speed", mouse_names[mouse_speed_index()], OSD_ITEM_SUBMENU, M_MOUSE},
 			{"Network", NULL, OSD_ITEM_SUBMENU, M_NETWORK},
 			{"About", NULL, OSD_ITEM_SUBMENU, M_ABOUT},
 			{"", NULL, OSD_ITEM_LABEL, -1},
@@ -644,6 +675,7 @@ void bmmac_menu(void)
 		case M_MACHINE: machine_menu(); break;
 		case M_VIDEO: video_menu(); break;
 		case M_SOUND: sound_menu(); break;
+		case M_MOUSE: mouse_menu(); break;
 		case M_NETWORK: network_menu(); break;
 		case M_ABOUT: about(); break;
 		case M_REBOOT:

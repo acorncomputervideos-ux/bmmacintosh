@@ -57,6 +57,7 @@
 void bmmac_request_power(int power_off);
 void bmmac_request_coldstart(void);
 #include "../../src/port/bmmac.h"
+#include "../../src/port/mouse_track.h"
 void emu_net_probe(int step);
 
 /* ---- Options ---------------------------------------------------------------- */
@@ -335,7 +336,6 @@ static unsigned char key_state[256];
 static int pads[HOST_PADS] = {-1, -1, -1, -1};
 static int pad_axes[HOST_PADS][2] = {{-1, -1}, {-1, -1}, {-1, -1}, {-1, -1}};
 static int gpio[2];
-static int mouse_dx, mouse_dy, mouse_buttons, mouse_seen;
 
 static void push_key(int usage, int pressed)
 {
@@ -378,24 +378,15 @@ int host_pad_axis(int pad, int axis)
 
 int host_gpio_joystick(int port) { return port >= 0 && port < 2 ? gpio[port] : 0; }
 
-int host_mouse_read(int *dx, int *dy, int *buttons)
+int host_mouse_sample(double *x, double *y, int *buttons)
 {
-	if (!mouse_seen)
-		return 0;
-	*dx = mouse_dx;
-	*dy = mouse_dy;
-	*buttons = mouse_buttons;
-	mouse_dx = mouse_dy = 0;
-	return 1;
+	return mouse_track_sample((uint64_t) (host_time() * 1e6), x, y, buttons);
 }
 
 /* For live.c */
 void sim_mouse(int dx, int dy, int buttons)
 {
-	mouse_dx += dx;
-	mouse_dy += dy;
-	mouse_buttons = buttons;
-	mouse_seen = 1;
+	mouse_track_report((uint64_t) (host_time() * 1e6), dx, dy, buttons);
 }
 
 /* US layout: character to (usage, shift). */

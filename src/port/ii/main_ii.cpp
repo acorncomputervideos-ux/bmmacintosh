@@ -259,6 +259,9 @@ void cpu_do_check_ticks(void)
 {
 	ii_audio_service();
 	host_poll_tasks();
+	/* The mouse four times a frame: smoother, sooner, and never more than
+	   an ADB packet holds (frontend.c). */
+	bmmac_mouse_tick();
 	if (++subtick >= SUBTICKS) {
 		mac_frames_usec += (uint64) (1000000.0 / 60.15);
 		subtick = 0;

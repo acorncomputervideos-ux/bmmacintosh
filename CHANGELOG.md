@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- A smooth mouse pointer. A USB mouse reports 125 times a second (most of
+  them) and the Mac's frames are 60.15: a frame had two reports' movement,
+  the next three, and the pointer stuttered. Each report is kept with its
+  time now, and the mouse read between them as it was a report's interval
+  earlier (`src/port/mouse_track.c`, tested by `tools/mouse`: a frame's
+  step was up to a whole report, 5 counts, from the hand's; one now). On
+  the Mac II the pointer also jumped back on quick movements: an ADB mouse
+  packet holds -64 to 63 counts, and more wrapped round. It gets the
+  movement four times a frame, 63 counts at most each time, with the rest
+  carried over. umac's Mac Plus is given its one count a 5 ms step, rather
+  than up to a frame's worth that it partly dropped
+- Mouse Speed in the menu: a quarter to twice the USB mouse's movement
 - The network drive called the card's top folder `/sd//` rather than
   `/sd/`, which a file manager could take for a folder of its own inside
   it. Opened in a browser, a folder is a readable page now, with sizes,

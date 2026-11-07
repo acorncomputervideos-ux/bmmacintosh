@@ -135,6 +135,7 @@ and the Mac stops while it's open. The arrow keys (or the D-pad) move,
 | Machine       | The Mac Plus or the Mac II (the Pi restarts) |
 | Video         | Screen size, frame lock, CRT effect, smooth scaling, disk activity |
 | Sound         | Volume, HDMI or the headphone jack |
+| Mouse Speed   | The USB mouse's speed on the Mac, from a quarter to twice |
 | Network       | Ethernet or Wi-Fi, the network drive and web page |
 | About         | Versions, the machine, the display |
 
@@ -170,6 +171,15 @@ a queue.
 A USB mouse is the Mac's mouse (the left button; the Mac has one). A
 gamepad moves the mouse too: the left stick or D-pad moves the pointer,
 A clicks, X types Space and Y Return.
+
+The pointer moves smoothly: the mouse's reports (125 a second for most
+mice, which doesn't divide into the Mac's 60.15 frames) are evened out, at
+the cost of about one report's time (8 ms), and the Mac II gets the
+movement four times a frame. A modern mouse counts eight or more times as
+many steps an inch as the Macs' did: if the pointer is too quick, choose a
+slower **Mouse Speed** in the menu (or in Mac OS's Mouse control panel).
+The Mac Plus moves its pointer at most 200 steps a second, as umac has
+it: a quick sweep is cut short there, and a slower Mouse Speed suits it.
 
 ## Display and timing
 

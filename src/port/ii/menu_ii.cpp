@@ -86,9 +86,19 @@ void emu_release_keys(void)
 	mouse_buttons = 0;
 }
 
+/* An ADB mouse packet's -64 to 63 counts (adb.cpp's ADBInterrupt() sends
+   what has gathered since the last in one): bmmac_mouse_tick() gives no
+   more, four times a frame. */
+int emu_mouse_step_max(void)
+{
+	return 63;
+}
+
 void emu_mouse(int dx, int dy, int buttons)
 {
-	if (dx != 0 || dy != 0)
+	/* Movement gathers until Mac OS takes it: before it has started, it
+	   would arrive in one oversized packet. */
+	if ((dx != 0 || dy != 0) && HasMacStarted())
 		ADBMouseMoved(dx, dy);
 	if ((buttons ^ mouse_buttons) & 1) {
 		if (buttons & 1)

@@ -110,6 +110,9 @@ const char *bmmac_disk_result(int *pending, unsigned *done);
 /* A path as on the card ("/disks/x.dsk") for a full one; "" when it isn't
    on the card. */
 void bmmac_card_relative(const char *full, char *out, unsigned size);
+/* Gives the Mac the mouse's movement since the last call, smoothed (see
+   frontend.c): called several times a frame by the emulators. */
+void bmmac_mouse_tick(void);
 /* Web UI requests waiting to be done; menus close for them. */
 int bmmac_pending_requests(void);
 /* The machine emulated, for the web UI and the menu. */
@@ -223,6 +226,8 @@ int emu_screen_copy(uint16_t *fb, int pitch_px, int force);
    (DX right, DY down, in pixels; BUTTONS bit 0 the button). */
 void emu_key(int mac_code, int pressed);
 void emu_mouse(int dx, int dy, int buttons);
+/* The most movement emu_mouse() takes in one call (counts, each way). */
+int emu_mouse_step_max(void);
 /* Lets go of every key (before a menu opens). */
 void emu_release_keys(void);
 /* The emulator's own items at the top of the menu (ids 100 and up), and

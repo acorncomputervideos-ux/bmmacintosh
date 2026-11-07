@@ -425,17 +425,72 @@ static void keyboard(void)
 /* The mouse, and the gamepads as one: the d-pad or stick moves the pointer,
    A is the button. X is Space and Y Return, for games. Home, or Select and
    Start together, open the menu. */
+/* ---- The mouse ---------------------------------------------------------------
+
+   The USB mouse is read smoothed (host_mouse_sample(), mouse_track.c), more
+   than once a frame: bmmac_mouse_tick() is called four times a frame by the
+   Mac II (between parts of its frame) and every 5 ms step by the Mac Plus.
+   Each call gives the Mac the movement since the last, times the menu's
+   Mouse Speed, with what is left over (fractions, and what didn't fit in
+   one step) carried to the next:
+
+   - The Mac II's mouse packets (Basilisk II's ADB) carry -64 to 63 counts:
+     more wrapped round, and the pointer jumped the wrong way, as it did on
+     any quick movement of a modern mouse (800 or more counts an inch,
+     where Apple's had 100). emu_mouse_step_max() is 63 there.
+   - umac moves the Mac Plus's mouse a count each 5 ms step, and dropped
+     what was more than 30 counts ahead. It is given 1 a step.
+
+   The gamepads' movement (pad_dx, pad_dy) and button go the same way. */
+
+static double pad_dx, pad_dy;    /* to be given to the Mac */
+static int pad_buttons;
+static double mouse_speed = 1.0;
+
+void bmmac_mouse_tick(void)
+{
+	static double last_x, last_y, carry_x, carry_y;
+	static int have_last, last_buttons = -1;
+	/* Not more than ten steps behind (630 counts on the Mac II, 50 ms on
+	   the Mac Plus): a flick faster than the Mac can take isn't played
+	   back long after the hand stopped. */
+	double x, y, step = emu_mouse_step_max(), limit = step * 10.0;
+	int buttons = pad_buttons, dx, dy;
+	int mb;
+	if (host_mouse_sample(&x, &y, &mb)) {
+		if (have_last) {
+			carry_x += (x - last_x) * mouse_speed;
+			carry_y += (y - last_y) * mouse_speed;
+		}
+		last_x = x;
+		last_y = y;
+		have_last = TRUE;
+		buttons |= mb & 1;
+	}
+	carry_x += pad_dx;
+	carry_y += pad_dy;
+	pad_dx = pad_dy = 0.0;
+	if (carry_x > limit) carry_x = limit;
+	if (carry_x < -limit) carry_x = -limit;
+	if (carry_y > limit) carry_y = limit;
+	if (carry_y < -limit) carry_y = -limit;
+	dx = (int) (carry_x > step ? step : carry_x < -step ? -step : carry_x);
+	dy = (int) (carry_y > step ? step : carry_y < -step ? -step : carry_y);
+	carry_x -= dx;
+	carry_y -= dy;
+	if (dx != 0 || dy != 0 || buttons != last_buttons) {
+		emu_mouse(dx, dy, buttons);
+		last_buttons = buttons;
+	}
+}
+
 static void mouse_and_pads(void)
 {
-	static int last_buttons = -1;
 	static double pad_fx, pad_fy;
-	int dx = 0, dy = 0, buttons = 0, pad;
-	int mdx, mdy, mbuttons;
-	if (host_mouse_read(&mdx, &mdy, &mbuttons)) {
-		dx += mdx;
-		dy += mdy;
-		buttons |= mbuttons & 1;
-	}
+	int buttons = 0, pad;
+	mouse_speed = host_option_double("mouse_speed", 1.0);
+	if (mouse_speed < 0.1 || mouse_speed > 4.0)
+		mouse_speed = 1.0;
 	for (pad = 0; pad < HOST_PADS; pad++) {
 		int state = host_pad_state(pad), menu, ax, ay;
 		double fx = 0.0, fy = 0.0;
@@ -467,14 +522,13 @@ static void mouse_and_pads(void)
 			emu_key(0x24, (state & HOST_PAD_Y) != 0);    /* Return */
 		pad_last[pad] = (state & 0xffff) | (menu ? 0x10000 : 0);
 	}
-	dx += (int) pad_fx;
-	dy += (int) pad_fy;
+	pad_dx += (int) pad_fx;
+	pad_dy += (int) pad_fy;
 	pad_fx -= (int) pad_fx;
 	pad_fy -= (int) pad_fy;
-	if (dx != 0 || dy != 0 || buttons != last_buttons) {
-		emu_mouse(dx, dy, buttons);
-		last_buttons = buttons;
-	}
+	pad_buttons = buttons;
+	/* Once a frame at least (the Mac II and Plus call it more often). */
+	bmmac_mouse_tick();
 }
 
 /* ---- Requests from the web UI ------------------------------------------------ */
