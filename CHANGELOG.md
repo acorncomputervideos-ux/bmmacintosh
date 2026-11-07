@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- The network drive called the card's top folder `/sd//` rather than
+  `/sd/`, which a file manager could take for a folder of its own inside
+  it. Opened in a browser, a folder is a readable page now, with sizes,
+  without the Mac's helper files, and a link to the web page
 - New blank disk images from the web page's Disks (the Mac II): an empty
   800K or 1.4 MB floppy or a 20 MB to 2 GB hard disk in `disks`, put in
   the Mac if wanted, for Mac OS to initialize. Only its start and end are

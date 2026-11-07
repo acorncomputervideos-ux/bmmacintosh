@@ -390,8 +390,8 @@ public:
         }
       }
     }
+    // The root's "/" is written above already.
     if (folder && !IsRoot(path)) Text("/");
-    if (folder && IsRoot(path)) Text("/");
   }
 
   void Finish(void) {
@@ -1096,15 +1096,27 @@ void Proppatch(CWebDavConnection *c, const char *path, Body *body) {
 // An HTML page of a folder, for a browser.
 int HtmlOne(void *ctx, const sd_info *info) {
   ListContext *l = (ListContext *) ctx;
+  // The Mac's helpers (.finf, .rsrc) and macOS's ._ files: not for a
+  // browser (file managers still have them).
+  if (info->name[0] == '.') return 0;
   char path[kPathMax];
   int n = snprintf(path, sizeof(path), "%s/%s", IsRoot(l->folder) ? "" : l->folder,
                    info->name);
   if (n <= 0 || (unsigned) n >= sizeof(path)) return 0;
-  l->r->Text("<li><a href=\"");
+  l->r->Text(info->is_dir ? "<li class=d><a href=\"" : "<li><a href=\"");
   l->r->Href(path, info->is_dir != 0);
   l->r->Text("\">");
   l->r->XmlText(info->name);
-  l->r->Text(info->is_dir ? "/</a></li>\n" : "</a></li>\n");
+  if (info->is_dir) {
+    l->r->Text("/</a></li>\n");
+  } else {
+    unsigned long kb = (info->size + 1023) / 1024;
+    if (kb < 1024) {
+      l->r->Printf("</a><span>%lu KB</span></li>\n", kb);
+    } else {
+      l->r->Printf("</a><span>%lu.%lu MB</span></li>\n", kb / 1024, kb % 1024 * 10 / 1024);
+    }
+  }
   if (++l->count % 32 == 0) l->c->Yield();
   return l->r->Failed() ? 1 : 0;
 }
@@ -1119,17 +1131,37 @@ void Get(CWebDavConnection *c, const char *path, bool head) {
     Response r(c);
     r.Begin(200, "text/html; charset=utf-8", -1, 0);
     if (!head) {
-      r.Text("<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>");
-      r.XmlText(path);
-      r.Text("</title></head><body><h1>");
-      r.XmlText(path);
-      r.Text("</h1><ul>\n");
+      // A page for a browser (file managers use PROPFIND).
+      r.Text("<!DOCTYPE html><html><head><meta charset=\"utf-8\">"
+             "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+             "<title>SD card");
+      if (!IsRoot(path)) {
+        r.Text(": ");
+        r.XmlText(path);
+      }
+      r.Text("</title><style>"
+             ":root{color-scheme:light dark}"
+             "body{font:15px/1.5 -apple-system,Segoe UI,Roboto,Ubuntu,sans-serif;"
+             "max-width:760px;margin:0 auto;padding:28px 20px}"
+             "h1{font-size:22px;margin:0 0 4px}p{margin:0 0 18px;color:#888}"
+             "ul{list-style:none;margin:0;padding:0}"
+             "li{display:flex;justify-content:space-between;gap:16px;padding:8px 2px;"
+             "border-top:1px solid rgba(128,128,128,.25)}"
+             "li span{color:#888;white-space:nowrap}"
+             "li.d a{font-weight:600}a{text-decoration:none}a:hover{text-decoration:underline}"
+             "</style></head><body><h1>SD card");
+      if (!IsRoot(path)) {
+        r.Text(": ");
+        r.XmlText(path);
+      }
+      r.Text("</h1><p>BMMacintosh's network drive: open this address in your "
+             "file manager to copy files. <a href=\"/\">The web page</a></p><ul>\n");
       if (!IsRoot(path)) {
         char parent[kPathMax];
         ParentOf(path, parent, sizeof(parent));
-        r.Text("<li><a href=\"");
+        r.Text("<li class=d><a href=\"");
         r.Href(parent, true);
-        r.Text("\">..</a></li>\n");
+        r.Text("\">&#8592; Up</a></li>\n");
       }
       ListContext l = {&r, path, 0, c, 0};
       sd_list_info(path, HtmlOne, &l);

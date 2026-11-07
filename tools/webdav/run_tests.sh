@@ -114,6 +114,7 @@ assert int(ok.find(".//" + D + "quota-available-bytes").text) > 0
 missing = stats["HTTP/1.1 404 Not Found"]
 assert missing.find(".//odd") is not None and missing.find(".//" + D + "getcontentlength") is not None
 PY
+check "the card's top folder is /sd/ (not /sd//)" 'curl -s -X PROPFIND -H "Depth: 0" "$URL/" | grep -q "<D:href>/sd/</D:href>" && ! curl -s -X PROPFIND -H "Depth: 1" "$URL/" | grep -q "/sd//" && ! curl -s "$URL/shared/" | grep -q "/sd//"'
 check "PROPFIND of the server's root lists the card" 'curl -s -X PROPFIND -H "Depth: 1" "http://127.0.0.1:$PORT/" | grep -q "<D:href>/sd/</D:href>"'
 check "broken XML: 400" '[ "$(status -X PROPFIND -d "<D:propfind xmlns:D=\"DAV:\"><D:prop>" "$URL/")" = 400 ]'
 check "GET of a folder: a page of it" 'curl -s "$URL/shared/" | grep -q "big.bin"'
