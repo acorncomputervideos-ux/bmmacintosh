@@ -56,6 +56,15 @@ export async function diskRequest(op, { path, index } = {}) {
   return body;
 }
 
+// A disk image the Mac isn't using, deleted from the card: { message }.
+export async function deleteDisk(path) {
+  const r = await fetch("/api/disks?op=delete&path=" + encodeURIComponent(path),
+    { method: "POST", headers: WEB_HEADER });
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new ApiError(r.status, body.message || "");
+  return body;
+}
+
 // ---- the Mac II's shared clipboard ----
 
 export const getClipboard = () => getJson("/api/clipboard");

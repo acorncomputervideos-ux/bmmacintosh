@@ -45,6 +45,8 @@ extern "C" void emu_disks(struct bmmac_disks *d) {
 		d->hard_count = 1;
 		strcpy(d->hard[0], "/disks/Mac OS 8.1.hda");
 		strcpy(d->floppy[1], "/disks/caf\x82.dsk");  /* CP850 é */
+		/* taken off the list, still open until the Mac restarts */
+		strcpy(d->open[d->open_count++], "/disks/Data.hda");
 	} else {
 		strcpy(d->disk, "/disks/sys.dsk");
 	}

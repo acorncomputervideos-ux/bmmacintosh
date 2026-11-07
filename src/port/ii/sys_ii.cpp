@@ -433,6 +433,21 @@ bool ii_eject_floppy_image(int n)
 }
 
 /* The disk in floppy drive N (0 or 1), or "". */
+/* The N-th disk image open now (hard disk, floppy or CD-ROM), "" past the
+   last; a drive with no disk in it is skipped. */
+const char *ii_open_name(int n)
+{
+	int k = 0;
+	for (int i = 0; i < MAX_FILES; i++) {
+		bm_file *f = &files[i];
+		if (!f->open || !has_disk(f))
+			continue;
+		if (k++ == n)
+			return f->name;
+	}
+	return "";
+}
+
 const char *ii_floppy_name(int n)
 {
 	int k = 0;

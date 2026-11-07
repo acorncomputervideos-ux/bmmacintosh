@@ -107,6 +107,13 @@ check "add a hard disk: queued" 'post ii post "op=add&path=/disks/Mac+OS+8.1.hda
 check "remove hard disk 2: queued" 'post ii post "op=remove&index=1" | grep -q "^queued 4 1 $"'
 check "eject the second floppy drive: queued" 'post ii post "op=eject&index=1" | grep -q "^queued 5 1 $"'
 check "eject a drive that isn't there: refused" '[ "$(post ii post "op=eject&index=3" | head -1 | cut -c1-3)" = 400 ] && [ "$(post ii post "op=eject" | head -1 | cut -c1-3)" = 400 ]'
+cp "$CARD/disks/f.dsk" "$CARD/disks/gone.dsk"
+check "delete an image: gone, at once" 'post ii post "op=delete&path=/disks/gone.dsk" | grep -q "^200 .*gone.dsk is deleted" && [ ! -e "$CARD/disks/gone.dsk" ]'
+check "delete one in a drive: refused" 'post ii post "op=delete&path=/disks/caf%C3%A9.dsk" | grep -q "^409" && ls "$CARD/disks" | grep -q "^caf.\\.dsk$"'
+check "delete a hard disk on the list: refused" 'post ii post "op=delete&path=/disks/Mac%20OS%208.1.hda" | grep -q "^409"'
+check "delete one still open: refused" 'post ii post "op=delete&path=/disks/Data.hda" | grep -q "^409" && [ -e "$CARD/disks/Data.hda" ]'
+check "delete outside the disks folder: refused" 'post ii post "op=delete&path=/config.txt" | grep -q "^400" && post ii post "op=delete&path=/disks/../config.txt" | grep -q "^400"'
+check "delete the Mac Plus disk: refused" 'post plus post "op=delete&path=/disks/sys.dsk" | grep -q "^40[49]"'
 check "eject on the Mac Plus: refused" 'post plus post "op=eject&index=0" | grep -q "^400"'
 check "remove with a bad index: refused" '[ "$(post ii post "op=remove&index=x" | head -1 | cut -c1-3)" = 400 ] && [ "$(post ii post "op=remove&index=99" | head -1 | cut -c1-3)" = 400 ]'
 check "outside the disks folder: refused" 'post ii post "op=start&path=/roms/notadisk.dsk" | grep -q "^400" && ! post ii post "op=start&path=/roms/notadisk.dsk" | grep -q queued'

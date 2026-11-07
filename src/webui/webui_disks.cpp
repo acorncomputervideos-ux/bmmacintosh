@@ -8,6 +8,7 @@
 //    "floppy":["/disks/Tools.dsk",""],    (the Mac II's drives, now)
 //    "cdrom":"",
 //    "disk":"",                           (the Mac Plus's)
+//    "open":["/disks/Mac OS 8.1.hda"],    (every image the Mac has open)
 //    "pending":false,"done":3,"result":"Tools.dsk is in the floppy drive.",
 //    "images":[{"path":"/disks/Tools.dsk","size":819200,"kind":"floppy",
 //               "startable":true},...],
@@ -31,6 +32,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 #include "../sdcard/sd_fs.h"
 
@@ -406,6 +408,12 @@ int WebUiDisksJson(char *out, unsigned size) {
   json.String(disks.cdrom);
   json.Raw(",\"disk\":");
   json.String(disks.disk);
+  json.Raw(",\"open\":[");
+  for (int i = 0; i < disks.open_count; i++) {
+    if (i > 0) json.Raw(",");
+    json.String(disks.open[i]);
+  }
+  json.Raw("]");
 
   int pending = 0;
   unsigned done = 0;
@@ -477,12 +485,46 @@ int NewImage(const char *query, char *out, unsigned size) {
   return 201;
 }
 
+// POST /api/disks?op=delete&path=/disks/Old.dsk: the image deleted from
+// the card, here and now; not while the Mac has it (in a drive, on its
+// list of hard disks, or open since it started).
+static int DeleteImage(const char *query, char *out, unsigned size) {
+  char utf8[600], path[600];
+  if (!QueryValue(query, "path", utf8, sizeof(utf8)) ||
+      !Utf8ToCp850(utf8, path, sizeof(path)) || !ValidImagePath(path)) {
+    return Answer(out, size, 400, "Not a disk image in the disks folder.");
+  }
+  sd_info info;
+  if (sd_stat_info(path, &info) != SD_OK || info.is_dir) {
+    return Answer(out, size, 404, "That disk image isn't on the card.");
+  }
+  static bmmac_disks disks;
+  emu_disks(&disks);
+  bool used = strcasecmp(path, disks.cdrom) == 0 || strcasecmp(path, disks.disk) == 0 ||
+              strcasecmp(path, disks.floppy[0]) == 0 || strcasecmp(path, disks.floppy[1]) == 0;
+  for (int i = 0; i < disks.hard_count; i++) used = used || strcasecmp(path, disks.hard[i]) == 0;
+  for (int i = 0; i < disks.open_count; i++) used = used || strcasecmp(path, disks.open[i]) == 0;
+  if (used) {
+    return Answer(out, size, 409,
+                  "The Mac is using that disk: eject it or remove it (and restart the "
+                  "Mac) first.");
+  }
+  if (sd_unlink(path) != SD_OK) {
+    return Answer(out, size, 500, "It couldn't be deleted.");
+  }
+  const char *base = strrchr(path, '/');  // CP850, as Answer() takes
+  char message[200];
+  snprintf(message, sizeof(message), "%.150s is deleted.", base + 1);
+  return Answer(out, size, 200, message);
+}
+
 int WebUiDisksRequest(const char *query, char *out, unsigned size) {
   char op_text[16];
   if (!QueryValue(query, "op", op_text, sizeof(op_text))) {
     return Answer(out, size, 400, "Which change? (op)");
   }
   if (strcmp(op_text, "new") == 0) return NewImage(query, out, size);
+  if (strcmp(op_text, "delete") == 0) return DeleteImage(query, out, size);
   int op;
   if (strcmp(op_text, "start") == 0) op = BMMAC_DISK_START;
   else if (strcmp(op_text, "insert") == 0) op = BMMAC_DISK_INSERT;

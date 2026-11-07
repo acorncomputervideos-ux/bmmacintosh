@@ -94,7 +94,8 @@ function renderImages() {
     ? "Start from is offered for disks with a System on them." +
       (state.more ? " The first " + images.length + " are shown." : "")
     : "None yet: copy disk images to the disks folder on the network drive.";
-  const inUse = new Set([...state.hard, ...state.floppy, state.cdrom, state.disk].filter(Boolean));
+  const inUse = new Set([...state.hard, ...state.floppy, state.cdrom, state.disk,
+    ...(state.open || [])].filter(Boolean));
   for (const img of images) {
     const li = document.createElement("li");
     const name = document.createElement("span");
@@ -113,6 +114,9 @@ function renderImages() {
       acts.append(button("Add", () => change("add", { path: img.path })));
     }
     if (img.startable) acts.append(button("Start from", () => start(img.path)));
+    if (!inUse.has(img.path)) {
+      acts.append(button("Delete", () => deleteDisk(img.path), { danger: true }));
+    }
     const text = document.createElement("span");
     text.className = "img-text";
     text.append(name, meta);
@@ -126,6 +130,20 @@ function render() {
   renderImages();
   $("new-disk").hidden = state.machine !== "ii";
   $("new-make").disabled = busy;
+}
+
+async function deleteDisk(path) {
+  if (busy) return;
+  if (!confirm("Delete " + base(path) + " from the card?\n\nEverything on the disk is lost.")) return;
+  busy = true;
+  render();
+  try {
+    setMsg((await api.deleteDisk(path)).message);
+  } catch (e) {
+    setMsg(e.message.replace(/^HTTP \d+ /, ""), true);
+  }
+  busy = false;
+  await refresh();
 }
 
 async function makeDisk(ev) {

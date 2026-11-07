@@ -32,6 +32,7 @@
 
 bool ii_insert_disk(const char *path, bool cdrom);
 const char *ii_floppy_name(int n);
+const char *ii_open_name(int n);
 int ii_drive_count(bool cdrom);
 bool ii_eject_floppy_image(int n);
 
@@ -367,6 +368,9 @@ void emu_disks(struct bmmac_disks *d)
 		bmmac_card_relative(ii_floppy_name(i), d->floppy[i], BMMAC_DISK_PATH);
 	const char *cd = PrefsFindString("cdrom");
 	bmmac_card_relative(cd != NULL ? cd : "", d->cdrom, BMMAC_DISK_PATH);
+	const char *open;
+	while (d->open_count < BMMAC_OPEN_DISKS && *(open = ii_open_name(d->open_count)) != '\0')
+		bmmac_card_relative(open, d->open[d->open_count++], BMMAC_DISK_PATH);
 }
 
 void emu_disk_request(int op, const char *path, int index, char *message, unsigned size)

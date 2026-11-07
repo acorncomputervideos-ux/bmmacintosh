@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Delete** on the web page's disk images: an image the Mac isn't using
+  (not in a drive, not one of its hard disks, not open since it started)
+  is deleted from the card, such as a blank floppy that didn't initialize
 - A floppy Mac OS has no volume on (a blank one it failed to initialize)
   can be ejected: Eject (the web page's or the menu's) asked Mac OS to put
   its volume away, and with none there it never came out. Such a floppy is

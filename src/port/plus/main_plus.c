@@ -639,6 +639,8 @@ void emu_disks(struct bmmac_disks *d)
 {
 	memset(d, 0, sizeof *d);
 	bmmac_card_relative(setting("plus_disk"), d->disk, BMMAC_DISK_PATH);
+	if (d->disk[0] != '\0')
+		snprintf(d->open[d->open_count++], BMMAC_DISK_PATH, "%s", d->disk);
 }
 
 void emu_disk_request(int op, const char *path, int index, char *message, unsigned size)

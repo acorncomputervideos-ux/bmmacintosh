@@ -249,6 +249,7 @@ void emu_autostart(const char *path);
 /* The Mac's disks, for the web page's Disks (src/webui/webui_disks.cpp):
    paths as on the card ("/disks/System.dsk"), "" for none. */
 #define BMMAC_DISK_PATH 256
+#define BMMAC_OPEN_DISKS 16
 #define BMMAC_HARD_DISKS 8
 struct bmmac_disks {
 	/* The Mac II's hard disks, from its next start: it starts from the
@@ -260,6 +261,10 @@ struct bmmac_disks {
 	char cdrom[BMMAC_DISK_PATH];
 	/* The Mac Plus's disk. */
 	char disk[BMMAC_DISK_PATH];
+	/* Every image the Mac has open now (a hard disk taken off the list
+	   stays open until the Mac restarts): not to be deleted. */
+	int open_count;
+	char open[BMMAC_OPEN_DISKS][BMMAC_DISK_PATH];
 };
 void emu_disks(struct bmmac_disks *disks);
 

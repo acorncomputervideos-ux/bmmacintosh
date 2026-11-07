@@ -298,7 +298,9 @@ Things to know:
   couldn't initialize comes out at once), **Add** makes a hard
   disk image one of its hard disks
   and **Remove** takes one off (from the Mac's next start), and **Start
-  from** restarts the Mac from any image. On the Mac Plus, **Start from**
+  from** restarts the Mac from any image. **Delete** deletes an image the
+  Mac isn't using from the card (one in a drive, on the hard disk list or
+  still open since the Mac started can't be). On the Mac Plus, **Start from**
   changes its one disk and restarts it. **New disk image** (the Mac II)
   makes an empty floppy (800K or 1.4 MB) or hard disk (20 MB to 2 GB) in
   `disks`, and puts it in the Mac (a floppy now, a hard disk from its next
