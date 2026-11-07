@@ -469,6 +469,14 @@ void plus_via_init(struct via_cb *cb)
 	via_init(&mine);
 }
 
+/* umac moves the mouse a count each 5 ms step (umac_loop()), and drops
+   what is more than 30 counts ahead: bmmac_mouse_tick() gives it one a
+   step, after each. */
+int emu_mouse_step_max(void)
+{
+	return 1;
+}
+
 void emu_mouse(int dx, int dy, int buttons)
 {
 	mouse_button = buttons & 1;
@@ -599,11 +607,49 @@ void emu_net_probe(int step)
 	(void) step;
 }
 
-/* The web UI's "start this file": the disk, and the Mac starts again. */
+/* "Start from this disk": the disk, and the Mac starts again. */
 void emu_autostart(const char *path)
 {
 	bmmac_save_setting("plus_disk", path);
 	emu_cold_reset();
+}
+
+/* Nor a network. */
+const char *emu_network_text(void)
+{
+	return NULL;
+}
+
+/* umac has no clipboard to share. */
+const char *emu_clipboard_text(int *from_mac)
+{
+	if (from_mac != NULL)
+		*from_mac = 0;
+	return NULL;
+}
+
+int emu_clipboard_set(const char *utf8, unsigned length)
+{
+	(void) utf8;
+	(void) length;
+	return FALSE;
+}
+
+void emu_disks(struct bmmac_disks *d)
+{
+	memset(d, 0, sizeof *d);
+	bmmac_card_relative(setting("plus_disk"), d->disk, BMMAC_DISK_PATH);
+}
+
+void emu_disk_request(int op, const char *path, int index, char *message, unsigned size)
+{
+	(void) index;
+	if (op == BMMAC_DISK_START || op == BMMAC_DISK_INSERT) {
+		emu_autostart(path);
+		snprintf(message, size, "The Mac starts again, from %s.", bmmac_base_name(path));
+		return;
+	}
+	snprintf(message, size, "The Mac Plus has one disk: start it from the one you want.");
 }
 
 /* ---- Running ----------------------------------------------------------------------- */
@@ -665,6 +711,8 @@ void emu_main(void)
 			while (emulated < wanted) {
 				int stopped = umac_loop();
 				answer_instant();
+				host_poll_tasks();
+				bmmac_mouse_tick();
 				if (stopped) {
 					printf("BMMacintosh: umac stopped\n");
 					bmmac_stopped("The Mac has stopped (umac could not go on).\n"

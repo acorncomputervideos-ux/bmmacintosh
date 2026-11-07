@@ -4,139 +4,141 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>BMMacintosh</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%233a2a20'/%3E%3Cpath d='M2 4h12v1.6H2z' fill='%23f4c64a'/%3E%3Cpath d='M2 6.8h12v1.6H2z' fill='%23ef9a33'/%3E%3Cpath d='M2 9.6h12v1.6H2z' fill='%23e2672b'/%3E%3Cpath d='M2 12.4h12V14H2z' fill='%23c43b28'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='2.5' y='1' width='11' height='14' rx='2' fill='%23ddd8cc' stroke='%23555' stroke-width='.8'/%3E%3Crect x='4.2' y='2.8' width='7.6' height='6' rx='.6' fill='%23334'/%3E%3Crect x='5' y='11.4' width='3.5' height='.9' fill='%23555'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="/style.css">
 <!-- Fetch every module up front: it saves a round trip per import level on the device. -->
 <link rel="modulepreload" href="/js/util.js">
 <link rel="modulepreload" href="/js/api.js">
+<link rel="modulepreload" href="/js/machine.js">
 <link rel="modulepreload" href="/js/dashboard.js">
 <link rel="modulepreload" href="/js/editor.js">
-<link rel="modulepreload" href="/js/files.js">
-<link rel="modulepreload" href="/js/menu.js">
+<link rel="modulepreload" href="/js/drive.js">
+<link rel="modulepreload" href="/js/disks.js">
+<link rel="modulepreload" href="/js/clipboard.js">
 </head>
 <body>
-<div id="app">
-  <aside class="sidebar">
-    <div class="sidebar-mark sidebar-name">BMMacintosh</div>
-    <nav class="nav">
-      <a class="nav-item" href="#/dashboard" data-view="dashboard"><span class="ni-ico">▦</span>Dashboard</a>
-      <a class="nav-item" href="#/files" data-view="files"><span class="ni-ico">▤</span>Files</a>
-    </nav>
-    <label class="up-drop side-drop" id="fb-drop" hidden>
-      <input type="file" id="fb-drop-file" multiple hidden>
-      <span>Drop files here to upload to <b id="fb-drop-dest">/</b></span>
-    </label>
-    <div class="sys-card">
-      <div class="sys-head"><span class="dot" id="sys-dot"></span><span id="sys-state">Connecting…</span></div>
-      <dl>
-        <dt>Uptime</dt><dd id="sc-uptime">—</dd>
-        <dt>IP Address</dt><dd id="sc-ip">—</dd>
-        <dt>Version</dt><dd id="sc-ver">—</dd>
-      </dl>
+<header class="top">
+  <div class="brand">
+    <svg class="brand-mac" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="1" width="11" height="14" rx="2"/><rect class="scr" x="4.2" y="2.8" width="7.6" height="6" rx=".6"/><rect class="slot" x="5" y="11.4" width="3.5" height=".9"/></svg>
+    <div>
+      <h1>BMMacintosh</h1>
+      <p class="sub" id="i-machine">—</p>
     </div>
-    <div class="nav nav-bottom">
-      <button class="nav-item" id="nav-reboot"><span class="ni-ico">⟳</span>Reboot</button>
-      <button class="nav-item" id="nav-shutdown"><span class="ni-ico">⏻</span>Shut Down</button>
+  </div>
+  <div class="conn"><span class="dot" id="sys-dot"></span><span id="sys-state">Connecting…</span></div>
+</header>
+
+<main>
+  <section class="card drive" aria-labelledby="drive-h">
+    <h2 id="drive-h">The SD card on your computer</h2>
+    <p>The card opens as a network drive in your computer's own file manager:
+      copy disk images, ROMs and files to it and from it as with any folder.
+      The <b>shared</b> folder is the Mac II's <i>SD Card</i> disk.</p>
+    <div class="addr">
+      <code id="drive-url">http://…/sd/</code>
+      <button class="btn" id="drive-copy" type="button">Copy</button>
     </div>
-    <div class="stripes"></div>
-  </aside>
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" data-os="win" type="button">Windows</button>
+      <button class="tab" role="tab" data-os="mac" type="button">macOS</button>
+      <button class="tab" role="tab" data-os="linux" type="button">Linux</button>
+    </div>
+    <ol class="steps" data-os="win">
+      <li>Open <b>File Explorer</b>, right-click <b>This PC</b> and choose <b>Map network drive…</b></li>
+      <li>Pick a letter, enter <code class="drive-url">http://…/sd/</code> as the folder and click <b>Finish</b>.</li>
+      <li>With a web UI PIN set, Windows only asks for it over HTTPS: leave the PIN off, or see the User Guide.</li>
+    </ol>
+    <ol class="steps" data-os="mac" hidden>
+      <li>In the <b>Finder</b>, choose <b>Go ▸ Connect to Server…</b> (⌘K).</li>
+      <li>Enter <code class="drive-url">http://…/sd/</code> and click <b>Connect</b>; as a guest when there is no PIN.</li>
+      <li>Files copied keep their type, creator and resource fork on the Mac II's <i>SD Card</i> disk.</li>
+    </ol>
+    <ol class="steps" data-os="linux" hidden>
+      <li>In <b>Files</b>, choose <b>Other Locations</b>, and under <b>Connect to Server</b> enter
+        <code class="drive-dav">dav://…/sd/</code></li>
+      <li>Or with rclone, davfs2 or any WebDAV client: <code class="drive-url">http://…/sd/</code></li>
+    </ol>
+    <p class="note">Don't change a disk image while the Mac is using it: eject it, or switch the Mac to another first.
+      <span id="d-storage" hidden>· <span id="d-storage-txt"></span></span></p>
+  </section>
 
-  <main class="main">
-    <section class="view" id="view-dashboard">
-      <div class="welcome-row">
-        <div>
-          <h1 class="welcome welcome-text">BMMacintosh</h1>
-          <p class="welcome-sub">Bare metal Mac Plus, Mac II and Quadra</p>
-        </div>
-        <div class="motto">
-          <span>Retro computing.<br>Modern control.</span>
-          <span class="stripes-sm"></span>
-        </div>
+  <section class="card" aria-labelledby="mac-h">
+    <h2 id="mac-h">The Mac</h2>
+    <div class="actions">
+      <button class="btn" id="qa-reset" type="button">Restart the Mac<small id="qa-reset-sub">As switching it off and on</small></button>
+      <button class="btn" id="qa-reboot" type="button">Reboot the Pi<small>Disk images are saved first</small></button>
+      <button class="btn btn-danger" id="qa-shutdown" type="button">Shut down<small>Then switch the power off</small></button>
+    </div>
+    <p class="msg" id="action-msg" role="status"></p>
+  </section>
+
+  <section class="card" aria-labelledby="disks-h">
+    <h2 id="disks-h">Disks</h2>
+    <div id="disks-now"></div>
+    <p class="msg" id="disks-msg" role="status"></p>
+    <h3>Disk images on the card</h3>
+    <p class="note-top" id="disks-note"></p>
+    <ul class="images" id="disks-images"></ul>
+    <form class="new-disk" id="new-disk" hidden>
+      <h3>New disk image</h3>
+      <div class="new-row">
+        <label>Name <input id="new-name" type="text" maxlength="64" value="Untitled" autocomplete="off" spellcheck="false"></label>
+        <label>Size
+          <select id="new-size">
+            <option value="floppy:819200">Floppy, 800K</option>
+            <option value="floppy:1474560">Floppy, 1.4 MB</option>
+            <option value="hard:20971520">Hard disk, 20 MB</option>
+            <option value="hard:104857600" selected>Hard disk, 100 MB</option>
+            <option value="hard:262144000">Hard disk, 250 MB</option>
+            <option value="hard:524288000">Hard disk, 500 MB</option>
+            <option value="hard:1073741824">Hard disk, 1 GB</option>
+            <option value="hard:2147483648">Hard disk, 2 GB</option>
+          </select>
+        </label>
+        <label class="check"><input id="new-use" type="checkbox" checked> Put it in the Mac</label>
+        <button class="btn btn-small btn-primary" id="new-make" type="submit">Make</button>
       </div>
+      <p class="note">An empty disk: Mac OS asks to initialize it (a hard disk once the Mac restarts).</p>
+    </form>
+  </section>
 
-      <div class="grid">
-        <div class="card qa-card">
-          <h2><span class="c-ico">⚡</span>Quick Actions</h2>
-          <div class="tiles">
-            <button class="tile tile-blue" id="qa-files">
-              <span class="tile-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M8.5 7.5h7M8.5 11h7M8.5 14.5h7M8.5 18h4"/></svg></span><span class="tile-t">Browse Files</span><span class="tile-s">SD card</span>
-            </button>
-            <button class="tile tile-purple" id="qa-reset">
-              <span class="tile-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.34-5.66"/><path d="M4 4v5h5"/></svg></span><span class="tile-t">Restart</span><span class="tile-s" id="qa-reset-sub">Start the machine again</span>
-            </button>
-            <button class="tile tile-pink" id="qa-reboot">
-              <span class="tile-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg></span><span class="tile-t">Reboot</span><span class="tile-s">Restart BMMacintosh</span>
-            </button>
-            <button class="tile tile-red" id="qa-shutdown">
-              <span class="tile-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5v8"/><path d="M6.7 7a7.5 7.5 0 1 0 10.6 0"/></svg></span><span class="tile-t">Shut Down</span><span class="tile-s">Power off BMMacintosh</span>
-            </button>
-            <button class="tile tile-amber" id="qa-disable">
-              <span class="tile-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M6 18 18 6"/></svg></span><span class="tile-t">Disable Web UI</span><span class="tile-s">Stop until reboot</span>
-            </button>
-          </div>
-          <p class="msg" id="action-msg"></p>
-        </div>
+  <section class="card" aria-labelledby="clip-h" id="clip-card" hidden>
+    <h2 id="clip-h">Clipboard</h2>
+    <p>Text copied on the Mac shows here. Text sent from here is what the Mac pastes next.</p>
+    <textarea class="clip-text" id="clip-text" rows="5" spellcheck="false" aria-label="The Mac's clipboard"></textarea>
+    <div class="clip-bar">
+      <span class="clip-from" id="clip-from"></span>
+      <button class="btn btn-small" id="clip-refresh" type="button">Refresh</button>
+      <button class="btn btn-small" id="clip-copy" type="button">Copy</button>
+      <button class="btn btn-small btn-primary" id="clip-send" type="button">Send to the Mac</button>
+    </div>
+    <p class="msg" id="clip-msg" role="status"></p>
+  </section>
 
-        <div class="card">
-          <h2><span class="c-ico">ⓘ</span>System Information</h2>
-          <dl class="kv">
-            <dt>Hostname</dt><dd id="i-host">—</dd>
-            <dt>IP Address</dt><dd id="i-ip">—</dd>
-            <dt>Machine</dt><dd id="i-machine">—</dd>
-            <dt>Model</dt><dd id="i-model">—</dd>
-            <dt>Network</dt><dd id="i-net">—</dd>
-            <dt>Firmware</dt><dd id="i-ver">—</dd>
-            <dt>Uptime</dt><dd id="i-uptime">—</dd>
-          </dl>
-        </div>
+  <section class="card" aria-labelledby="set-h">
+    <h2 id="set-h">Settings</h2>
+    <p>The files BMMacintosh starts from. Most changes take effect after a reboot.</p>
+    <ul class="files" id="settings"></ul>
+  </section>
 
-        <div class="card">
-          <h2><span class="c-ico">◴</span>Hardware Status</h2>
-          <dl class="kv">
-            <dt>Under-voltage</dt><dd id="d-uv">—</dd>
-            <dt>Under-voltage since boot</dt><dd id="d-uv-boot">—</dd>
-            <dt>CPU throttled</dt><dd id="d-thr">—</dd>
-            <dt>Throttled since boot</dt><dd id="d-thr-boot">—</dd>
-          </dl>
-          <div class="meter" id="d-tempmeter" hidden>
-            <div class="meter-top"><span>SoC temperature</span><span id="d-temp">—</span></div>
-            <div class="bar"><div class="bar-fill" id="d-temp-bar"></div></div>
-          </div>
-          <div class="meter" id="d-storage" hidden>
-            <div class="meter-top"><span>SD storage</span><span id="d-storage-txt">—</span></div>
-            <div class="bar"><div class="bar-fill" id="d-storage-bar"></div></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="view" id="view-files" hidden>
-      <div class="card fb-card" id="fb-card">
-        <h2><span class="c-ico">▤</span>Files</h2>
-        <div class="fb-bar">
-          <button class="btn" id="fb-up">↑ Up</button>
-          <div class="crumbs" id="fb-crumbs"></div>
-          <button class="btn" id="fb-mkdir">New folder…</button>
-          <label class="btn" id="fb-upload-btn">Upload…<input type="file" id="fb-upload" multiple hidden></label>
-          <button class="btn" id="fb-refresh" title="Refresh">⟳</button>
-        </div>
-        <p class="fb-note">Uploads write to this folder on the SD card. Don't overwrite a disk image the emulator currently has attached.</p>
-        <p class="msg" id="fb-status"></p>
-        <div class="fb-scroll">
-          <table class="fb-table">
-            <thead><tr><th>Name</th><th class="col-size">Size</th><th class="col-mod">Modified</th><th></th></tr></thead>
-            <tbody id="fb-rows"></tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <footer class="footer">
-      <span>BMMacintosh &nbsp;·&nbsp; Bare Metal 68k Macintosh</span>
-      <span class="stripes-sm"></span>
-    </footer>
-  </main>
-</div>
+  <section class="card" aria-labelledby="sys-h">
+    <h2 id="sys-h">System</h2>
+    <dl class="kv">
+      <dt>Address</dt><dd id="i-ip">—</dd>
+      <dt>Name</dt><dd id="i-host">—</dd>
+      <dt>Network</dt><dd id="i-net">—</dd>
+      <dt>Pi</dt><dd id="i-model">—</dd>
+      <dt>Version</dt><dd id="i-ver">—</dd>
+      <dt>Up</dt><dd id="i-uptime">—</dd>
+      <dt>Temperature</dt><dd id="d-temp">—</dd>
+      <dt>Under-voltage</dt><dd id="d-uv">—</dd>
+      <dt>… since it started</dt><dd id="d-uv-boot">—</dd>
+      <dt>Throttled</dt><dd id="d-thr">—</dd>
+      <dt>… since it started</dt><dd id="d-thr-boot">—</dd>
+    </dl>
+    <button class="link" id="qa-disable" type="button">Turn the web UI and network drive off until the next reboot</button>
+  </section>
+</main>
 
 <div class="overlay" id="editor" role="dialog" aria-modal="true" aria-labelledby="ed-title" hidden>
   <div class="ed-dialog">
@@ -154,7 +156,7 @@
       <div class="ed-btns">
         <button class="btn" id="ed-cancel">Cancel</button>
         <button class="btn btn-primary" id="ed-save">Save</button>
-        <button class="btn btn-reboot" id="ed-save-reboot">Save &amp; Reboot</button>
+        <button class="btn" id="ed-save-reboot">Save &amp; Reboot</button>
       </div>
     </div>
   </div>

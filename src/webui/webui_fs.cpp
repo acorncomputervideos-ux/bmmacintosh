@@ -24,7 +24,6 @@
 #if BMC64_WEBUI
 
 #include "webui_http.h"
-#include "webui_machine.h"
 
 #include <circle/net/socket.h>
 #include <circle/sched/scheduler.h>
@@ -34,12 +33,10 @@
 #include <string.h>
 
 #include "../sdcard/sd_fs.h"
+#include "cp850.h"
 
 // Implemented in src/vice_network.cpp.
 extern "C" const char *circle_get_disk_volume(void);
-// Queues a file for the emulator main loop to autostart (interrupt safe;
-// see third_party/common/ui.c).
-extern "C" void emu_autostart_interrupt(const char *path);
 
 using webhttp::CChunkedResponse;
 
@@ -55,25 +52,6 @@ const unsigned WEBUI_FS_EDIT_MAX = 256 * 1024;
 // scratch buffer is safe and keeps it off the task stack.
 u8 s_io_buffer[WEBUI_FS_IO_CHUNK];
 
-// CP850 (the FatFs OEM code page in this build) 0x80..0xFF -> Unicode.
-const unsigned short kCp850High[128] = {
-    0x00C7, 0x00FC, 0x00E9, 0x00E2, 0x00E4, 0x00E0, 0x00E5, 0x00E7,
-    0x00EA, 0x00EB, 0x00E8, 0x00EF, 0x00EE, 0x00EC, 0x00C4, 0x00C5,
-    0x00C9, 0x00E6, 0x00C6, 0x00F4, 0x00F6, 0x00F2, 0x00FB, 0x00F9,
-    0x00FF, 0x00D6, 0x00DC, 0x00F8, 0x00A3, 0x00D8, 0x00D7, 0x0192,
-    0x00E1, 0x00ED, 0x00F3, 0x00FA, 0x00F1, 0x00D1, 0x00AA, 0x00BA,
-    0x00BF, 0x00AE, 0x00AC, 0x00BD, 0x00BC, 0x00A1, 0x00AB, 0x00BB,
-    0x2591, 0x2592, 0x2593, 0x2502, 0x2524, 0x00C1, 0x00C2, 0x00C0,
-    0x00A9, 0x2563, 0x2551, 0x2557, 0x255D, 0x00A2, 0x00A5, 0x2510,
-    0x2514, 0x2534, 0x252C, 0x251C, 0x2500, 0x253C, 0x00E3, 0x00C3,
-    0x255A, 0x2554, 0x2569, 0x2566, 0x2560, 0x2550, 0x256C, 0x00A4,
-    0x00F0, 0x00D0, 0x00CA, 0x00CB, 0x00C8, 0x0131, 0x00CD, 0x00CE,
-    0x00CF, 0x2518, 0x250C, 0x2588, 0x2584, 0x00A6, 0x00CC, 0x2580,
-    0x00D3, 0x00DF, 0x00D4, 0x00D2, 0x00F5, 0x00D5, 0x00B5, 0x00FE,
-    0x00DE, 0x00DA, 0x00DB, 0x00D9, 0x00FD, 0x00DD, 0x00AF, 0x00B4,
-    0x00AD, 0x00B1, 0x2017, 0x00BE, 0x00B6, 0x00A7, 0x00F7, 0x00B8,
-    0x00B0, 0x00A8, 0x00B7, 0x00B9, 0x00B3, 0x00B2, 0x25A0, 0x00A0,
-};
 
 void EmitUtf8(CChunkedResponse *r, unsigned cp) {
   char out[3];
@@ -257,17 +235,6 @@ boolean CiEqual(const char *a, const char *b) {
   return *a == *b;
 }
 
-// Only the image/program types this machine's Autostart accepts as-is
-// (webui_machine.cpp).
-boolean IsAutostartable(const char *clean) {
-  const char *dot = 0;
-  for (const char *p = clean; *p != '\0'; p++) {
-    if (*p == '/') dot = 0;
-    else if (*p == '.') dot = p + 1;
-  }
-  return dot != 0 && WebUiMachineCanRun(dot);
-}
-
 // The boot configuration files. Upload and delete refuse them (in any
 // folder); the editor's save endpoint is the only way the web UI changes them.
 const char *const kConfigFiles[] = {
@@ -380,24 +347,33 @@ BodyResult ReceiveBodyToFile(CSocket *socket, const char *temppath,
     written += prefetched_len;
   }
 
+  // A Receive() brings one TCP segment or a few (1460 bytes each): they are
+  // gathered into the buffer and written to the card a buffer at a time,
+  // which FatFs and the card do in far fewer, bigger writes than a segment
+  // at a time.
+  unsigned buffered = 0;
   while (result == BODY_OK && written < total) {
     unsigned long remain = total - written;
-    unsigned want = remain < sizeof(s_io_buffer) ? (unsigned) remain
-                                                 : sizeof(s_io_buffer);
-    int n = socket->Receive(s_io_buffer, want, 0);
+    unsigned space = sizeof(s_io_buffer) - buffered;
+    unsigned want = remain < space ? (unsigned) remain : space;
+    int n = socket->Receive(s_io_buffer + buffered, want, 0);
     if (n <= 0) {
       result = BODY_TRUNCATED;
       break;
     }
-    if (reject_nul && memchr(s_io_buffer, 0, (unsigned) n) != 0) {
+    if (reject_nul && memchr(s_io_buffer + buffered, 0, (unsigned) n) != 0) {
       result = BODY_HAS_NUL;
       break;
     }
-    if (sd_write(file, s_io_buffer, (unsigned) n) != SD_OK) {
-      result = BODY_WRITE_FAILED;
-      break;
-    }
+    buffered += (unsigned) n;
     written += (unsigned) n;
+    if (buffered == sizeof(s_io_buffer) || written == total) {
+      if (sd_write(file, s_io_buffer, buffered) != SD_OK) {
+        result = BODY_WRITE_FAILED;
+        break;
+      }
+      buffered = 0;
+    }
     CScheduler::Get()->Yield();
   }
 
@@ -918,42 +894,6 @@ void WebUiFsRename(CSocket *socket, const char *query) {
 
   const char *ok = "{\"ok\":true}";
   webhttp::SendResponse(socket, 200, "OK", "application/json", ok,
-                        (unsigned) strlen(ok));
-}
-
-// ---- autostart ----
-
-void WebUiFsAutostart(CSocket *socket, const char *query) {
-  char clean[560];
-  if (ResolveTarget(socket, query, clean, sizeof(clean), TRUE) != 0) {
-    return;
-  }
-  if (!IsAutostartable(clean)) {
-    webhttp::SendText(socket, 400, "Bad Request",
-                      "not an autostartable file type\n");
-    return;
-  }
-
-  sd_info info;
-  if (sd_stat_info(clean, &info) != SD_OK || info.is_dir) {
-    webhttp::SendText(socket, 404, "Not Found", "no such file\n");
-    return;
-  }
-
-  // Runs later on the emulator core, through stdio, so it gets the path
-  // with the card's volume ("SD:/disks/x.po").
-  char volume_path[600];
-  if ((unsigned) snprintf(volume_path, sizeof(volume_path), "%s:%s",
-                          circle_get_disk_volume(), clean) >=
-      sizeof(volume_path)) {
-    webhttp::SendText(socket, 400, "Bad Request", "path too long\n");
-    return;
-  }
-  // Failures are only logged there.
-  emu_autostart_interrupt(volume_path);
-
-  const char *ok = "{\"ok\":true}";
-  webhttp::SendResponse(socket, 202, "Accepted", "application/json", ok,
                         (unsigned) strlen(ok));
 }
 

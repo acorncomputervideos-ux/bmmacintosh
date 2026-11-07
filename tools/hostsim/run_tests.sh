@@ -220,6 +220,38 @@ run "$PLUS" norom_plus 60 "" '120 shot a.ppm\n121 quit\n'
 check_log norom_plus "No Mac Plus ROM" "the Mac Plus asks for a ROM"
 menu_shown norom_plus a
 
+# The web page's Disks, through the queue the emulator takes them from
+# between frames (no ROM is needed for the Mac II's hard disk list).
+mkdir -p "$OUT/disks_ii/disks" "$OUT/disks_plus/disks"
+ln -s "$OUT/empty" "$OUT/disks_ii/roms"
+ln -s "$OUT/empty" "$OUT/disks_plus/roms"
+head -c 1048576 /dev/zero > "$OUT/disks_ii/disks/a.hda"
+head -c 1048576 /dev/zero > "$OUT/disks_ii/disks/b.hda"
+head -c 819200 /dev/zero > "$OUT/disks_ii/disks/f.dsk"
+head -c 819200 /dev/zero > "$OUT/disks_plus/disks/sys.dsk"
+run "$II" disks_ii 60 "" '100 disk add 0 /disks/a.hda
+110 disk add 0 /disks/b.hda
+120 disk add 0 /disks/a.hda
+130 disk remove 0
+140 disk insert 0 /disks/f.dsk
+150 quit
+'
+check_log disks_ii "Web UI: a.hda is a hard disk when the Mac restarts" "Disks: a hard disk added"
+check_log disks_ii "Web UI: a.hda is a hard disk already" "Disks: not twice"
+check_log disks_ii "Web UI: a.hda is gone when the Mac restarts" "Disks: a hard disk removed"
+check_log disks_ii "Web UI: The Mac isn't running" "Disks: no floppy drive while the Mac isn't running"
+check_cfg disks_ii macii.prefs "^disk .*/disks/b\.hda$" "Disks: macii.prefs has the hard disk left"
+if grep -q "a\.hda" "$OUT/disks_ii/macii.prefs" 2>/dev/null; then
+    fail disks_ii "Disks: the removed hard disk is still in macii.prefs"
+else
+    pass "disks_ii: Disks: the removed one is gone from macii.prefs"
+fi
+run "$PLUS" disks_plus 60 "" '100 disk start 0 /disks/sys.dsk
+150 quit
+'
+check_log disks_plus "Web UI: The Mac starts again, from sys.dsk" "Disks: the Mac Plus starts from a disk"
+check_cfg disks_plus bmmac.cfg "plus_disk.*/disks/sys\.dsk" "Disks: bmmac.cfg has the Mac Plus's disk"
+
 if [ "$HAVE_ROMS" -eq 0 ]; then
     for t in "Mac II boot" "Mac Plus boot" "menus" "machine switching" "web UI requests" \
              "System disks"; do

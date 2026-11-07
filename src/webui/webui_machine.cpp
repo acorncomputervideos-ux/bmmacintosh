@@ -28,8 +28,7 @@
 #include <stdio.h>
 
 // The machine running (src/port/frontend.c), and the disk images its
-// emulator can start (emu_autostart_interrupt() there puts one in and
-// restarts the Mac).
+// emulator takes (the web page's Disks, webui_disks.cpp).
 extern "C" const char *bmmac_machine_text(void);
 extern "C" const char *const *emu_run_types(void);
 // The Mac Plus's settings are in bmmac.cfg; the Mac II's in macii.prefs.

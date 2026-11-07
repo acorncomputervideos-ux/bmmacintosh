@@ -36,6 +36,12 @@ double host_time(void);
 void host_sleep_us(unsigned us);
 /* Lets Circle's tasks (VCHIQ, USB) run. Call regularly. */
 void host_yield(void);
+/* Lets Circle's tasks run while the web UI is answering a request (an
+   upload or a download), and does nothing otherwise. They run once a frame
+   anyway (host_video_present()); the emulators call this between a frame's
+   parts as well, so a transfer isn't held to one turn of the network a
+   frame. */
+void host_poll_tasks(void);
 
 /* ---- Video --------------------------------------------------------------- */
 
@@ -102,9 +108,10 @@ int host_pad_state(int pad);
    stick (or none is connected there). */
 int host_pad_axis(int pad, int axis);
 
-/* USB mice: how far they moved since last asked, and the buttons held
-   (bit 0 left, 1 right, 2 middle). Returns 0 if there is no mouse. */
-int host_mouse_read(int *dx, int *dy, int *buttons);
+/* USB mice: where the mouse is (counts moved since the start, smoothed
+   between its reports: src/port/mouse_track.h), and the buttons held (bit 0
+   left, 1 right, 2 middle). Returns 0 if no mouse has reported yet. */
+int host_mouse_sample(double *x, double *y, int *buttons);
 
 /* State of the joystick wired to GPIO port PORT (0 or 1), as HOST_JOY_* bits.
    Always 0 when GPIO joysticks are disabled. */

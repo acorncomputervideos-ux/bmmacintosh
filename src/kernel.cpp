@@ -13,6 +13,8 @@
 #include "av/layout.h"
 #include "logging.h"
 #include "network.h"
+#include "webui/webui.h"
+#include "port/mouse_track.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -145,8 +147,8 @@ CKernel::CKernel(void)
       mAudioOut(VCHIQSoundDestinationAuto),
 #endif
       m_MergedModifiers(0),
-      m_KeyQueueHead(0), m_KeyQueueTail(0), m_pMouse(0), m_MouseDx(0),
-      m_MouseDy(0), m_MouseButtons(0), m_bGPIOJoysticks(false) {
+      m_KeyQueueHead(0), m_KeyQueueTail(0), m_pMouse(0),
+      m_bGPIOJoysticks(false) {
   s_pThis = this;
   for (unsigned i = 0; i < MAX_KEYBOARDS; i++) {
     m_pKeyboard[i] = 0;
@@ -753,9 +755,9 @@ void CKernel::MouseStatusHandler(unsigned nButtons, int nDisplacementX,
   if (k == 0) {
     return;
   }
-  __atomic_add_fetch(&k->m_MouseDx, nDisplacementX, __ATOMIC_RELAXED);
-  __atomic_add_fetch(&k->m_MouseDy, nDisplacementY, __ATOMIC_RELAXED);
-  __atomic_store_n(&k->m_MouseButtons, (int)(nButtons & 7), __ATOMIC_RELEASE);
+  // Each report with its time, for the smoothing (src/port/mouse_track.c).
+  mouse_track_report(CTimer::GetClockTicks64(), nDisplacementX, nDisplacementY,
+                     (int)(nButtons & 7));
 }
 
 void CKernel::MouseRemovedHandler(CDevice *pDevice, void *pContext) {
@@ -764,14 +766,12 @@ void CKernel::MouseRemovedHandler(CDevice *pDevice, void *pContext) {
     return;
   }
   k->m_pMouse = 0;
-  k->m_MouseButtons = 0;
+  // Its buttons let go.
+  mouse_track_report(CTimer::GetClockTicks64(), 0, 0, 0);
 }
 
-int CKernel::MouseRead(int *dx, int *dy, int *buttons) {
-  *dx = __atomic_exchange_n(&m_MouseDx, 0, __ATOMIC_RELAXED);
-  *dy = __atomic_exchange_n(&m_MouseDy, 0, __ATOMIC_RELAXED);
-  *buttons = __atomic_load_n(&m_MouseButtons, __ATOMIC_ACQUIRE);
-  return m_pMouse != 0;
+int CKernel::MouseSample(double *x, double *y, int *buttons) {
+  return mouse_track_sample(CTimer::GetClockTicks64(), x, y, buttons);
 }
 
 //
@@ -1165,6 +1165,14 @@ void host_sleep_us(unsigned us) {
 
 void host_yield(void) { CScheduler::Get()->Yield(); }
 
+void host_poll_tasks(void) {
+  if (WebUiBusy()) {
+    Core1Beat("running Circle tasks");
+    CScheduler::Get()->Yield();
+    Core1Beat("emulating");
+  }
+}
+
 int host_video_init(int width, int height, uint16_t **pixels, int *pitch) {
   return CKernel::Get()->VideoInit(width, height, pixels, pitch);
 }
@@ -1203,8 +1211,8 @@ int host_pad_state(int pad) { return CKernel::Get()->PadState(pad); }
 
 int host_pad_axis(int pad, int axis) { return CKernel::Get()->PadAxis(pad, axis); }
 
-int host_mouse_read(int *dx, int *dy, int *buttons) {
-  return CKernel::Get()->MouseRead(dx, dy, buttons);
+int host_mouse_sample(double *x, double *y, int *buttons) {
+  return CKernel::Get()->MouseSample(x, y, buttons);
 }
 
 int host_gpio_joystick(int port) { return CKernel::Get()->GpioJoystick(port); }

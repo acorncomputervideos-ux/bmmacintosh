@@ -2,7 +2,7 @@
 // webui_machine.h
 //
 // What the web UI can do on the machine this build emulates: the machine
-// running, the file types Autostart accepts, and the emulator's settings
+// running, the disk image types it takes, and the emulator's settings
 // file. GET /api/status reports these as "caps" so the page needs no
 // machine knowledge of its own.
 //
@@ -26,7 +26,7 @@
 struct WebUiMachine {
   // The emulator's settings file.
   const char *settings;
-  // Lowercase extensions Autostart accepts, ending with a null.
+  // Lowercase extensions of the disk images it takes, ending with a null.
   const char *const *run_types;
 };
 
@@ -35,7 +35,7 @@ const WebUiMachine *WebUiMachineGet(void);
 // The machine running, as the menu names it ("Macintosh Plus, 4 MB").
 const char *WebUiMachineName(void);
 
-// TRUE if Autostart accepts files with this extension (any case).
+// TRUE if the Mac takes disk images with this extension (any case).
 boolean WebUiMachineCanRun(const char *ext);
 
 // Writes the "caps" JSON object for /api/status. Returns its length, or

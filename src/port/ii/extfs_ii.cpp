@@ -29,6 +29,9 @@
  *  - FatFs removes a folder only when it is empty, without telling why it
  *    can't: a folder's helper folders (.finf and .rsrc) are removed first.
  *  - newlib has no utime(): src/port/posix_extra.c's (which does nothing).
+ *  - FatFs grows a file when the Mac moves past its end, and ftruncate()
+ *    grows it back: extfs_posix.h's calls keep POSIX's rules, here and in
+ *    extfs.cpp.
  */
 
 #include <sys/types.h>
@@ -50,6 +53,10 @@ extern "C" int utime(const char *path, const struct utimbuf *times);
 
 #define DEBUG 0
 #include "debug.h"
+
+// After the headers: open(), close(), lseek() and ftruncate() below are
+// extfs_posix.cpp's.
+#include "extfs_posix.h"
 
 
 // Default Finder flags
@@ -154,6 +161,99 @@ static int open_helper(const char *path, const char *add, int flag)
 	return fd;
 }
 
+/*
+ *  AppleDouble files ("._name"), which macOS writes next to a file it
+ *  copies to a FAT card: the file's Finder info (type and creator) and
+ *  resource fork. ExtFS doesn't show files starting with a dot, and
+ *  without these an application or a document copied from a Mac came
+ *  without its type and resources and wouldn't open. The first time the
+ *  Mac looks at a file that has one and no .finf or .rsrc of its own,
+ *  they are made from it; after that the Mac's own are used (the "._"
+ *  file is left as it is).
+ */
+
+static uint32 be32(const uint8 *p)
+{
+	return (uint32)p[0] << 24 | (uint32)p[1] << 16 | (uint32)p[2] << 8 | p[3];
+}
+
+static bool helper_exists(const char *path, const char *add)
+{
+	char helper_path[MAX_PATH_LENGTH];
+	make_helper_path(path, helper_path, add);
+	struct stat st;
+	return stat(helper_path, &st) == 0;
+}
+
+// Copies "length" bytes at "offset" of fd to a new helper file of path's.
+static bool copy_to_helper(int fd, uint32 offset, uint32 length, const char *path, const char *add)
+{
+	if (lseek(fd, offset, SEEK_SET) != (off_t)offset)
+		return false;
+	int out = open_helper(path, add, O_WRONLY | O_CREAT | O_TRUNC);
+	if (out < 0)
+		return false;
+	static uint8 buf[8192];
+	bool ok = true;
+	while (ok && length > 0) {
+		size_t n = length < sizeof(buf) ? length : sizeof(buf);
+		ssize_t got = read(fd, buf, n);
+		ok = got == (ssize_t)n && write(out, buf, n) == (ssize_t)n;
+		length -= n;
+	}
+	close(out);
+	if (!ok) {
+		char helper_path[MAX_PATH_LENGTH];
+		make_helper_path(path, helper_path, add);
+		remove(helper_path);
+	}
+	return ok;
+}
+
+static void import_appledouble(const char *path)
+{
+	bool need_finf = !helper_exists(path, ".finf/");
+	bool need_rsrc = !helper_exists(path, ".rsrc/");
+	if (!need_finf && !need_rsrc)
+		return;
+
+	char ad_path[MAX_PATH_LENGTH];
+	make_helper_path(path, ad_path, "._");
+	int fd = open(ad_path, O_RDONLY);
+	if (fd < 0)
+		return;
+
+	// The header: magic, version, 16 bytes, and the number of entries,
+	// each an ID, an offset and a length
+	uint8 header[26];
+	if (read(fd, header, sizeof(header)) == (ssize_t)sizeof(header)
+	    && be32(header) == 0x00051607
+	    && (be32(header + 4) == 0x00020000 || be32(header + 4) == 0x00010000)) {
+		struct stat st;
+		off_t size = stat(ad_path, &st) == 0 ? st.st_size : 0;
+		int entries = header[24] << 8 | header[25];
+		for (int i = 0; i < entries && i < 32; i++) {
+			uint8 e[12];
+			if (read(fd, e, sizeof(e)) != (ssize_t)sizeof(e))
+				break;
+			uint32 id = be32(e), offset = be32(e + 4), length = be32(e + 8);
+			if ((off_t)offset + length > size)
+				continue;
+			off_t next = lseek(fd, 0, SEEK_CUR);
+			if (id == 9 && need_finf && length >= SIZEOF_FInfo) {
+				// FInfo and FXInfo (macOS adds its extended attributes
+				// after them)
+				uint32 n = length >= SIZEOF_FInfo + SIZEOF_FXInfo ? SIZEOF_FInfo + SIZEOF_FXInfo : SIZEOF_FInfo;
+				copy_to_helper(fd, offset, n, path, ".finf/");
+			} else if (id == 2 && need_rsrc && length > 0)
+				copy_to_helper(fd, offset, length, path, ".rsrc/");
+			if (lseek(fd, next, SEEK_SET) != next)
+				break;
+		}
+	}
+	close(fd);
+}
+
 static int open_finf(const char *path, int flag)
 {
 	return open_helper(path, ".finf/", flag);
@@ -161,6 +261,14 @@ static int open_finf(const char *path, int flag)
 
 static int open_rsrc(const char *path, int flag)
 {
+	// Most files have no resource fork: look for an AppleDouble file only
+	// when there is no .rsrc (and before one is made for writing)
+	if ((flag & O_ACCMODE) == O_RDONLY) {
+		int fd = open_helper(path, ".rsrc/", flag);
+		if (fd >= 0 || errno != ENOENT)
+			return fd;
+	}
+	import_appledouble(path);
 	return open_helper(path, ".rsrc/", flag);
 }
 
@@ -245,8 +353,12 @@ void get_finfo(const char *path, uint32 finfo, uint32 fxinfo, bool is_dir)
 	WriteMacInt16(finfo + fdFlags, DEFAULT_FINDER_FLAGS);
 	WriteMacInt32(finfo + fdLocation, (uint32)-1);
 
-	// Read Finder info file
+	// Read Finder info file (made from an AppleDouble file the first time)
 	int fd = open_finf(path, O_RDONLY);
+	if (fd < 0) {
+		import_appledouble(path);
+		fd = open_finf(path, O_RDONLY);
+	}
 	if (fd >= 0) {
 		ssize_t actual = read(fd, Mac2HostAddr(finfo), SIZEOF_FInfo);
 		if (fxinfo)
@@ -332,7 +444,7 @@ void close_rfork(const char *path, int fd)
 
 ssize_t extfs_read(int fd, void *buffer, size_t length)
 {
-	return read(fd, buffer, length);
+	return extfs_posix_read(fd, buffer, length);
 }
 
 
@@ -343,7 +455,7 @@ ssize_t extfs_read(int fd, void *buffer, size_t length)
 
 ssize_t extfs_write(int fd, void *buffer, size_t length)
 {
-	return write(fd, buffer, length);
+	return extfs_posix_write(fd, buffer, length);
 }
 
 
@@ -359,6 +471,8 @@ bool extfs_remove(const char *path)
 	make_helper_path(path, helper_path, ".finf/", false);
 	remove(helper_path);
 	make_helper_path(path, helper_path, ".rsrc/", false);
+	remove(helper_path);
+	make_helper_path(path, helper_path, "._", false);
 	remove(helper_path);
 
 	// A folder: its helper folders first (FatFs removes empty folders only)
@@ -393,6 +507,9 @@ bool extfs_rename(const char *old_path, const char *new_path)
 	make_helper_path(old_path, old_helper_path, ".rsrc/", false);
 	make_helper_path(new_path, new_helper_path, ".rsrc/", false);
 	create_helper_dir(new_path, ".rsrc/");
+	rename(old_helper_path, new_helper_path);
+	make_helper_path(old_path, old_helper_path, "._", false);
+	make_helper_path(new_path, new_helper_path, "._", false);
 	rename(old_helper_path, new_helper_path);
 
 	// Now rename file

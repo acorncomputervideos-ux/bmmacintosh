@@ -79,9 +79,11 @@ GEN := $(BUILD)/gen
 OBJS = src/main.o src/kernel.o src/logging.o src/options.o \
        src/port/frontend.o src/port/keymap.o src/port/menu.o src/port/machine.o \
        src/port/osd.o src/port/roms.o src/port/posix_extra.o src/port/fswrap.o \
+       src/port/clip_text.o src/port/mouse_track.o \
        src/network.o src/network_time_sync.o \
        src/webui/webui.o src/webui/webui_http.o src/webui/webui_fs.o \
-       src/webui/webui_machine.o src/webui/webui_assets.o \
+       src/webui/webui_machine.o src/webui/webui_assets.o src/webui/webdav.o \
+       src/webui/webui_disks.o \
        src/sdcard/sd_fs_fatfs.o src/sdcard/sd_fs_file.o
 
 # zlib's inflate, for MAME's zipped ROM sets (src/port/roms.c).
@@ -199,6 +201,8 @@ $(B2_GEN_OBJS): $(GEN)/b2/%.o: $(GEN)/b2/%.cpp $(GEN)/b2/cputbl.h src/port/ii/sy
 	@echo "  CPP   $<"
 	@$(CPP) $(B2_FLAGS) -c -o $@ $<
 
+$(BUILD)/b2/extfs.o: B2_FLAGS += $(B2_EXTFS_FLAGS)
+$(BUILD)/b2/extfs.o: src/port/ii/extfs_posix.h
 $(BUILD)/b2/%.o: $(B2)/%.cpp $(GEN)/b2/cputbl.h src/port/ii/sysdeps.h
 	@mkdir -p $(dir $@)
 	@echo "  CPP   $<"

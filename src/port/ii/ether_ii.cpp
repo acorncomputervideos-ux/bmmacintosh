@@ -120,6 +120,24 @@ extern "C" int slirp_can_output(void)
 	return 1;
 }
 
+/* Frames the Mac has sent, for the menu (emu_network_text()). */
+static volatile unsigned mac_frames;
+
+/* For the menu's Network: how the Mac's network is. */
+const char *emu_network_text(void)
+{
+	static char text[96];
+	if (!net_running)
+		snprintf(text, sizeof text, "starts with the Mac");
+	else if (!net_announced)
+		snprintf(text, sizeof text, "waiting for the Pi's network");
+	else if (mac_frames == 0)
+		snprintf(text, sizeof text, "ready: set Mac OS's TCP/IP to DHCP");
+	else
+		snprintf(text, sizeof text, "in use (10.0.2.15, DNS %s)", bmslirp_dns_text());
+	return text;
+}
+
 /* The network test (emu_net_probe()): what answered. */
 static volatile bool probing, dns_answered;
 
@@ -320,6 +338,7 @@ int16 ether_write(uint32 wds)
 	}
 	if (!net_running)
 		return noErr;     /* no network yet: as if the cable were out */
+	mac_frames++;
 	return queue_put(&to_slirp, packet, length) ? noErr : excessCollsns;
 }
 

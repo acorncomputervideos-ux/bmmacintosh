@@ -1,5 +1,5 @@
-// Dashboard view and the Pi/system controls: status polling, hardware and
-// storage meters, and the reboot / shut down / restart / disable-web-UI
+// Status and the Pi's controls: status polling, the hardware flags and
+// the card's space, and the restart / reboot / shut down / disable-web-UI
 // actions.
 
 import { $, fmtUptime, fmtKB } from "./util.js";
@@ -21,18 +21,11 @@ function setConn(ok, text) {
 }
 
 function renderTemp(t) {
-  const wrap = $("d-tempmeter");
-  if (t == null || isNaN(Number(t))) { wrap.hidden = true; return; }
-  t = Number(t);
-  const cls = t >= 80 ? "v-bad" : t >= 70 ? "v-warn" : "v-ok";
   const val = $("d-temp");
+  if (t == null || isNaN(Number(t))) { val.textContent = "—"; val.className = ""; return; }
+  t = Number(t);
   val.textContent = t.toFixed(1) + " °C";
-  val.className = cls;
-  const bar = $("d-temp-bar");
-  bar.style.width = Math.max(0, Math.min(100, ((t - 30) / 60) * 100)) + "%";
-  bar.style.background =
-    t >= 80 ? "var(--red)" : t >= 70 ? "var(--amber)" : "var(--green)";
-  wrap.hidden = false;
+  val.className = t >= 80 ? "v-bad" : t >= 70 ? "v-warn" : "v-ok";
 }
 
 // Raspberry Pi get_throttled bits. Bits 0-3 are the current state; bits
@@ -91,10 +84,6 @@ async function pollStatus() {
     const s = await api.getStatus();
     ok = true;
 
-    $("sc-uptime").textContent = fmtUptime(s.uptime_secs);
-    $("sc-ip").textContent = s.ip || "—";
-    $("sc-ver").textContent = s.version ? "v" + s.version : "—";
-
     renderTemp(s.soc_temp_c);
     renderThermalFlags(s.throttled);
 
@@ -114,7 +103,6 @@ async function pollStatus() {
       $("action-msg").className = "msg";
       $("action-msg").textContent = "BMMacintosh is back online.";
       $("qa-reboot").disabled = false;
-      $("nav-reboot").disabled = false;
     }
   } catch (e) {
     if (e.status === 401) {
@@ -141,9 +129,6 @@ export async function refreshVolumes() {
     const v = (await api.getVolumes()).volumes || [];
     const sd = v[0];
     if (!sd || !sd.total_kb) { $("d-storage").hidden = true; return; }
-    const usedKb = sd.total_kb - sd.free_kb;
-    const pct = Math.min(100, Math.round((usedKb / sd.total_kb) * 100));
-    $("d-storage-bar").style.width = pct + "%";
     $("d-storage-txt").textContent =
       fmtKB(sd.free_kb) + " free of " + fmtKB(sd.total_kb);
     $("d-storage").hidden = false;
@@ -158,7 +143,6 @@ export async function refreshVolumes() {
 export async function rebootNow() {
   rebooting = true;
   $("qa-reboot").disabled = true;
-  $("nav-reboot").disabled = true;
   $("action-msg").className = "msg";
   $("action-msg").textContent = "Sending reboot command…";
   try {
@@ -180,7 +164,7 @@ async function doShutdown() {
     "Shut down BMMacintosh now?\n\n" +
     "Disk images are saved first. Any other unsaved emulator state is lost, " +
     "and BMMacintosh stays off until its power is switched off and on again.")) return;
-  for (const id of ["qa-shutdown", "nav-shutdown", "qa-reboot", "nav-reboot"]) {
+  for (const id of ["qa-shutdown", "qa-reboot"]) {
     $(id).disabled = true;
   }
   $("action-msg").className = "msg";
@@ -191,7 +175,7 @@ async function doShutdown() {
     if (e.status) {
       $("action-msg").className = "msg err";
       $("action-msg").textContent = "Could not shut down — " + e.message;
-      for (const id of ["qa-shutdown", "nav-shutdown", "qa-reboot", "nav-reboot"]) {
+      for (const id of ["qa-shutdown", "qa-reboot"]) {
         $(id).disabled = false;
       }
       return;
@@ -226,7 +210,7 @@ async function doHardReset() {
 
 async function disableWebUi() {
   if (!confirm(
-    "Disable the Web UI now?\n\n" +
+    "Turn the web UI and the network drive off now?\n\n" +
     "The server stops immediately. It starts again after the next reboot " +
     "unless you also turn it off in the Network menu.")) return;
   $("qa-disable").disabled = true;
@@ -250,9 +234,7 @@ async function disableWebUi() {
 
 export function initDashboard() {
   $("qa-reboot").addEventListener("click", doReboot);
-  $("nav-reboot").addEventListener("click", doReboot);
   $("qa-shutdown").addEventListener("click", doShutdown);
-  $("nav-shutdown").addEventListener("click", doShutdown);
   $("qa-reset").addEventListener("click", doHardReset);
   $("qa-disable").addEventListener("click", disableWebUi);
 

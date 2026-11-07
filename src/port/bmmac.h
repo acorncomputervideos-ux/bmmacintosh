@@ -101,6 +101,18 @@ void bmmac_display_mode_changed(void);
 void bmmac_request_power(int power_off);
 /* The web UI's Restart: the Mac starts again. */
 void bmmac_request_coldstart(void);
+/* The web page's change to the disks (BMMAC_DISK_*, PATH on the card,
+   "/disks/x.dsk"), done between frames. FALSE while another waits. */
+int bmmac_disk_interrupt(int op, const char *card_path, int index);
+/* What the last one did ("" before any), whether one waits, and how many
+   have been done. */
+const char *bmmac_disk_result(int *pending, unsigned *done);
+/* A path as on the card ("/disks/x.dsk") for a full one; "" when it isn't
+   on the card. */
+void bmmac_card_relative(const char *full, char *out, unsigned size);
+/* Gives the Mac the mouse's movement since the last call, smoothed (see
+   frontend.c): called several times a frame by the emulators. */
+void bmmac_mouse_tick(void);
 /* Web UI requests waiting to be done; menus close for them. */
 int bmmac_pending_requests(void);
 /* The machine emulated, for the web UI and the menu. */
@@ -214,6 +226,8 @@ int emu_screen_copy(uint16_t *fb, int pitch_px, int force);
    (DX right, DY down, in pixels; BUTTONS bit 0 the button). */
 void emu_key(int mac_code, int pressed);
 void emu_mouse(int dx, int dy, int buttons);
+/* The most movement emu_mouse() takes in one call (counts, each way). */
+int emu_mouse_step_max(void);
 /* Lets go of every key (before a menu opens). */
 void emu_release_keys(void);
 /* The emulator's own items at the top of the menu (ids 100 and up), and
@@ -222,14 +236,54 @@ int emu_menu_items(struct osd_item *items, int max);
 int emu_menu_choose(int id);
 /* Switching the Mac off and on, from the menu and the web UI. */
 void emu_cold_reset(void);
-/* The web UI's "start this file": a disk image is put in and the Mac
-   started from it. */
+/* "Start from this disk": a disk image is put in and the Mac started from
+   it (the web page's Disks). */
 void emu_autostart(const char *path);
+
+/* The Mac's disks, for the web page's Disks (src/webui/webui_disks.cpp):
+   paths as on the card ("/disks/System.dsk"), "" for none. */
+#define BMMAC_DISK_PATH 256
+#define BMMAC_HARD_DISKS 8
+struct bmmac_disks {
+	/* The Mac II's hard disks, from its next start: it starts from the
+	   first. */
+	int hard_count;
+	char hard[BMMAC_HARD_DISKS][BMMAC_DISK_PATH];
+	/* The Mac II's floppy drives and CD-ROM drive, now. */
+	char floppy[2][BMMAC_DISK_PATH];
+	char cdrom[BMMAC_DISK_PATH];
+	/* The Mac Plus's disk. */
+	char disk[BMMAC_DISK_PATH];
+};
+void emu_disks(struct bmmac_disks *disks);
+
+/* The Mac II's network, for the menu ("ready: set Mac OS's TCP/IP to
+   DHCP"); NULL on the Mac Plus, which has none. */
+const char *emu_network_text(void);
+
+/* The shared clipboard (the Mac II's; NULL on the Mac Plus): the text a
+   Mac program copied last, or the web page set, as UTF-8; *FROM_MAC says
+   which. */
+const char *emu_clipboard_text(int *from_mac);
+/* The web page's text for the Mac, which it gets when a program pastes.
+   FALSE on the Mac Plus, or if it is too long (64 KB). */
+int emu_clipboard_set(const char *utf8, unsigned length);
+
+/* Changes to the disks the web page asks for (bmmac_disk_interrupt()). */
+enum {
+	BMMAC_DISK_START = 1,  /* start the Mac from PATH */
+	BMMAC_DISK_INSERT,     /* the Mac II: PATH into a floppy or the CD-ROM drive */
+	BMMAC_DISK_ADD,        /* the Mac II: PATH a hard disk from its next start */
+	BMMAC_DISK_REMOVE,     /* the Mac II: hard disk INDEX no more */
+};
+/* Does one, between frames: PATH is the image's full path. Writes what
+   happened, for the web page, to MESSAGE. */
+void emu_disk_request(int op, const char *path, int index, char *message, unsigned size);
 /* The PC simulator's network test ("netprobe"): STEP 0 asks the Mac's
    network for an address (DHCP), 1 looks a name up (DNS), as the Mac
    would; the answers are logged. The Mac Plus has no network. */
 void emu_net_probe(int step);
-/* The disk image types emu_autostart() takes (lower case, no dot). */
+/* The disk image types the Mac takes (lower case, no dot). */
 const char *const *emu_run_types(void);
 /* Writes everything the Mac has changed to the card (before power off,
    and once a second). */

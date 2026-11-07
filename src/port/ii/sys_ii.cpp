@@ -398,6 +398,16 @@ bool ii_insert_disk(const char *path, bool cdrom)
 	return false;
 }
 
+/* The Mac's floppy drives (or CD-ROM drives): none while it isn't running. */
+int ii_drive_count(bool cdrom)
+{
+	int n = 0;
+	for (int i = 0; i < MAX_FILES; i++)
+		if (files[i].open && files[i].removable && files[i].is_cdrom == cdrom)
+			n++;
+	return n;
+}
+
 /* The disk in floppy drive N (0 or 1), or "". */
 const char *ii_floppy_name(int n)
 {

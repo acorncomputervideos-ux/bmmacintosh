@@ -27,7 +27,7 @@ CFLAGS = -O2 -g
 WARN = -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare -Wno-missing-field-initializers
 
 # The front end both share.
-COMMON_SRCS = frontend.c keymap.c menu.c machine.c osd.c roms.c
+COMMON_SRCS = frontend.c keymap.c menu.c machine.c osd.c roms.c clip_text.c mouse_track.c
 COMMON_OBJS := $(addprefix $(OUT)/port/,$(COMMON_SRCS:.c=.o)) \
                $(addprefix $(OUT)/zlib/,$(ZLIB_SRCS:.c=.o)) \
                $(OUT)/host_sim.o $(OUT)/live.o
@@ -92,6 +92,8 @@ $(GEN)/cpuemu%.o: $(GEN)/cpuemu.cpp $(ROOT)/src/port/ii/sysdeps.h
 $(GEN)/%.o: $(GEN)/%.cpp $(GEN)/cputbl.h $(ROOT)/src/port/ii/sysdeps.h
 	@$(CXX) $(B2_FLAGS) -c -o $@ $<
 
+$(OUT)/b2/extfs.o: B2_FLAGS += $(B2_EXTFS_FLAGS)
+$(OUT)/b2/extfs.o: $(ROOT)/src/port/ii/extfs_posix.h
 $(OUT)/b2/%.o: $(B2)/%.cpp $(GEN)/cputbl.h $(ROOT)/src/port/ii/sysdeps.h
 	@mkdir -p $(dir $@)
 	@$(CXX) $(B2_FLAGS) -c -o $@ $<

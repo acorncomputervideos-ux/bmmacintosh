@@ -1,5 +1,86 @@
 # Changelog
 
+## 0.1.5 – 2026-11-07
+
+Built for every board and tested on the PC (the simulator and the tests
+below), but not tried on a Raspberry Pi yet.
+
+- A smooth mouse pointer. A USB mouse reports 125 times a second (most of
+  them) and the Mac's frames are 60.15: a frame had two reports' movement,
+  the next three, and the pointer stuttered. Each report is kept with its
+  time now, and the mouse read between them as it was a report's interval
+  earlier (`src/port/mouse_track.c`, tested by `tools/mouse`: a frame's
+  step was up to a whole report, 5 counts, from the hand's; one now). On
+  the Mac II the pointer also jumped back on quick movements: an ADB mouse
+  packet holds -64 to 63 counts, and more wrapped round. It gets the
+  movement four times a frame, 63 counts at most each time, with the rest
+  carried over. umac's Mac Plus is given its one count a 5 ms step, rather
+  than up to a frame's worth that it partly dropped
+- Mouse Speed in the menu: a quarter to twice the USB mouse's movement
+- The network drive called the card's top folder `/sd//` rather than
+  `/sd/`, which a file manager could take for a folder of its own inside
+  it. Opened in a browser, a folder is a readable page now, with sizes,
+  without the Mac's helper files, and a link to the web page
+- New blank disk images from the web page's Disks (the Mac II): an empty
+  800K or 1.4 MB floppy or a 20 MB to 2 GB hard disk in `disks`, put in
+  the Mac if wanted, for Mac OS to initialize. Only its start and end are
+  written; the rest is grown without writing, so a big one takes seconds,
+  not minutes
+- Disks on the web page: the Mac's disks, and the disk images in the
+  card's `disks` folder, with what each can do. On the Mac II, insert a
+  floppy or CD-ROM image while the Mac runs, add or remove hard disks, or
+  start from any image; on the Mac Plus, start from one. The Mac makes the
+  change between its frames, and the page shows what happened
+  (`src/webui/webui_disks.cpp`, `bmmac_disk_interrupt()`; tested by
+  `tools/disks` and `tools/hostsim`)
+- A shared clipboard for the Mac II: text a Mac program copies shows on
+  the web page, and text sent from the page is what the Mac pastes next.
+  Basilisk II's clipboard driver is BMMacintosh's own now
+  (`src/port/ii/clip_ii.cpp`, from its Unix one), with MacRoman and UTF-8
+  converted both ways (`src/port/clip_text.c`, tested against Python's
+  mac_roman codec by `tools/clipboard`). Not tried with Mac OS yet
+- The menu's *Network* shows the web page's and the network drive's
+  addresses, and how the Mac II's network is (waiting for the Pi's
+  network, ready for Mac OS's TCP/IP, or in use)
+- The SD card is a network drive: Windows (Map network drive), macOS
+  (Connect to Server) and Linux file managers open
+  `http://<the Pi>/sd/` as a folder of their own (WebDAV,
+  `src/webui/webdav.cpp`), to copy, rename, move and delete files and make
+  folders. Uploads with a length or chunked (macOS), after
+  "100 Continue" (Windows), through a temporary file; a file's Mac type,
+  creator and resource fork go with it; the boot configuration and
+  `firmware` stay protected. `tools/webdav` tests it on the PC with curl,
+  rclone and litmus (the WebDAV test suite: all of its basic, copymove and
+  http tests but one name in a character FAT's code page hasn't)
+- The web page is one simple page instead of the file manager: the network
+  drive's address and how to connect, restarting the Mac and rebooting or
+  shutting down the Pi, the settings files' editor, and the Pi's status.
+  Light or dark as the computer is. Disk images are started from the
+  menu (F12) now
+- The Mac II's SD Card disk (the shared folder) no longer spoils files the
+  Mac writes on a Pi. When a program saved over a file with less than it
+  held, or the Mac moved past a file's end, FatFs (through circle-newlib)
+  made the file longer, ending in whatever the card held, and it wouldn't
+  open again. The file positions now follow POSIX's rules, as on a PC,
+  where the PC simulator's tests ran (`src/port/ii/extfs_posix.cpp`,
+  tested against stand-ins for FatFs's calls by `tools/extfs_posix`)
+- Files copied to the card from a Mac running macOS keep their type,
+  creator and resource fork on the SD Card disk: they come from the
+  AppleDouble files (`._name`) macOS writes next to them, which were left
+  out, so applications and many documents came without them and wouldn't
+  open
+- Faster uploads and downloads in the web UI. The network and the web UI
+  run between the Mac's frames, and had one turn a frame: while the web
+  UI answers a request they now also run between the parts of a frame
+  (four times as often on the Mac II). Uploads are written to the card
+  32 KB at a time instead of a network packet (1460 bytes) at a time, and
+  the Pi's TCP receive window is 32 packets instead of 10
+  (`src/patches/circle_tcp_window_patch.diff`), which also helps the Mac
+  II's own downloads. Not measured on a Pi yet
+- The Mac II's CPU core is compiled without a frame pointer: each 68k
+  instruction's function no longer saves and restores one (3.4% less of
+  the core's code on the Pi 5, cortex-a76). Not measured on a Pi yet
+
 ## 0.1.4 – 2026-11-03
 
 - The Mac II reaches the Internet from a Pi (issue #5): it had an address

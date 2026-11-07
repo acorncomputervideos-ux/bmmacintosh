@@ -42,7 +42,7 @@ it available; see the [third-party](docs/THIRD_PARTY.md) acknowledgements.
   (`.iso`, `.toast`) on the Mac II; a floppy image (raw or DiskCopy 4.2) or
   a hard disk (raw or partitioned) on the Mac Plus. Written in place, so the Pi can be switched off at any time
 - On the Mac II, a folder on the card (`shared`) is a disk on the Mac's
-  desktop, *SD Card*: copy files to it from a PC, or from the web UI
+  desktop, *SD Card*: copy files to it from a PC, or over the network
 - On the Mac II, the network: with the Pi on Ethernet or Wi-Fi, Mac OS's
   TCP/IP (set to DHCP) reaches the internet through the Pi, as QEMU's user
   networking does (slirp)
@@ -52,8 +52,9 @@ it available; see the [third-party](docs/THIRD_PARTY.md) acknowledgements.
   USB gamepads as the mouse
 - A menu (F12) for the disks, the ROM, the memory, the machine, video,
   sound and network
-- Optional Ethernet or Wi-Fi with BMC64's web UI: manage the SD card from a
-  browser and start disk images
+- Optional Ethernet or Wi-Fi: the SD card is a network drive in Windows,
+  macOS and Linux file managers (WebDAV), and a web page has the Mac's
+  disks, the Mac II's clipboard, and the Pi's settings and controls
 
 ## ROMs and System software
 
@@ -142,6 +143,7 @@ src/main.cpp, kernel.cpp   Circle kernel: USB, GPIO, SD card; runs the Mac on co
 src/fbl.cpp                Display (dispmanx layer, optional CRT shader), from BMC64
 src/vchiqsound*.cpp        Sound over HDMI or the headphone jack, from BMC64
 src/network.cpp, webui/    Ethernet / Wi-Fi and the web UI, from BMC64
+src/webui/webdav.cpp       The SD card as a network drive (WebDAV)
 src/host.h                 What the kernel offers the emulator
 src/port/bmmac.h           What the two Macs and their shared front end offer each other
 src/port/frontend.c        The frame loop: display, pacing, sound, input, requests
