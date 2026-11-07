@@ -220,6 +220,22 @@ run "$PLUS" norom_plus 60 "" '120 shot a.ppm\n121 quit\n'
 check_log norom_plus "No Mac Plus ROM" "the Mac Plus asks for a ROM"
 menu_shown norom_plus a
 
+# File transfers: a big one pauses the Mac with a window (logged when it
+# ends), a small one doesn't, and Esc lets the Mac run meanwhile.
+mkdir -p "$OUT/xfer_big" "$OUT/xfer_small" "$OUT/xfer_esc"
+for d in xfer_big xfer_small xfer_esc; do ln -s "$OUT/empty" "$OUT/$d/roms"; done
+run "$II" xfer_big 60 "" '100 xfer up 5242880 /disks/a.dsk\n110 xfer progress 2621440\n120 shot during.ppm\n130 xfer progress 5242880\n131 xfer end\n400 quit\n'
+check_log xfer_big "the Mac paused for a file transfer" "a big transfer pauses the Mac"
+check_log xfer_big "file transfer: 1 file, 5.0 MB" "... and the log has its size and speed"
+run "$II" xfer_small 60 "" '100 xfer begin 102400 /disks/small.txt\n101 xfer progress 102400\n102 xfer end\n300 quit\n'
+if grep -q "paused for a file transfer" "$OUT/xfer_small/log.txt"; then
+    fail xfer_small "a small transfer paused the Mac"
+else
+    pass "xfer_small: a small transfer leaves the Mac running"
+fi
+run "$II" xfer_esc 60 "" "100 xfer up 5242880 /disks/a.dsk\n110 xfer progress 1048576\n$(key $ESC 130)200 xfer end\n400 quit\n"
+check_log xfer_esc "running again \(Esc\)" "Esc lets the Mac run during a transfer"
+
 # The web page's Disks, through the queue the emulator takes them from
 # between frames (no ROM is needed for the Mac II's hard disk list).
 mkdir -p "$OUT/disks_ii/disks" "$OUT/disks_plus/disks"

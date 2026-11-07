@@ -22,7 +22,8 @@ OUT=$HERE/out
 mkdir -p "$OUT"
 
 ${CXX:-c++} -std=gnu++14 -O1 -g -Wall -Wextra -Werror -o "$OUT/dav_server" \
-    "$HERE/dav_server.cpp" "$HERE/sd_fs_posix.cpp" "$ROOT/src/webui/webdav.cpp" || exit 1
+    "$HERE/dav_server.cpp" "$HERE/sd_fs_posix.cpp" "$ROOT/src/webui/webdav.cpp" \
+    "$ROOT/src/port/transfer.c" || exit 1
 
 CARD=$OUT/card
 rm -rf "$CARD" "$OUT/work"

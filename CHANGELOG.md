@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- The Mac pauses during big file transfers (the network drive's and the web
+  page's, 512 KB or more): a window on the Pi's screen shows the file, the
+  progress, the speed and the time left, and the network has the Pi's core
+  to itself, where it shared it with the Mac (a 5 MB file over Wi-Fi took
+  minutes). The Mac carries on 2 seconds after the last file; Esc lets it
+  run meanwhile; *Pause the Mac During Transfers* in the Network menu turns
+  it off. Each pause's size, time and speed go in the log
+  (`src/port/transfer.c`; the PC simulator's `xfer` command and three
+  tests)
 - Faster transfers over Wi-Fi (the network drive and the web page). Circle's
   Wi-Fi driver is tasks of its own, which hand over at every lock, wait
   and packet, and while the web UI answered a request they got one turn at

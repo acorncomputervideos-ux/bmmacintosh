@@ -459,7 +459,8 @@ static int scan_wifi(void)
 
 static void network_menu(void)
 {
-	enum { N_DEVICE, N_SCAN, N_SSID, N_PASSWORD, N_COUNTRY, N_WEBUI, N_PIN, N_TIMEZONE, N_REBOOT };
+	enum { N_DEVICE, N_SCAN, N_SSID, N_PASSWORD, N_COUNTRY, N_WEBUI, N_PIN, N_PAUSE, N_TIMEZONE,
+	       N_REBOOT };
 	static const char *const devices[] = {"off", "ethernet", "wifi", NULL};
 	static const char *const device_names[] = {"Off", "Ethernet", "Wi-Fi", NULL};
 	int sel = 0, first = TRUE;
@@ -500,6 +501,8 @@ static void network_menu(void)
 				{"Wi-Fi Country", wifi_country, OSD_ITEM_SUBMENU, N_COUNTRY},
 				{"Web UI", NULL, check(setting_on("webui", TRUE)), N_WEBUI},
 				{"Web UI PIN", pin[0] ? pin : "(none)", OSD_ITEM_SUBMENU, N_PIN},
+				{"Pause the Mac During Transfers", NULL, check(setting_on("transfer_pause", TRUE)),
+				 N_PAUSE},
 				{"Time Zone", tz, OSD_ITEM_SUBMENU, N_TIMEZONE},
 				{"", NULL, OSD_ITEM_LABEL, -1},
 				{"Changes apply after a reboot.", NULL, OSD_ITEM_LABEL, -1},
@@ -547,6 +550,10 @@ static void network_menu(void)
 		case N_WEBUI:
 			save_setting("webui", setting_on("webui", TRUE) ? "0" : "1");
 			reboot_needed = TRUE;
+			break;
+		case N_PAUSE:
+			/* Takes effect at once (frontend.c's transfer_pause()). */
+			save_setting("transfer_pause", setting_on("transfer_pause", TRUE) ? "0" : "1");
 			break;
 		case N_PIN: {
 			char text[9];

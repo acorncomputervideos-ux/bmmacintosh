@@ -22,6 +22,9 @@
  *   <frame> webui <reboot|coldstart>  a request from the web UI
  *   <frame> netprobe <dhcp|dns>    the Mac II's network asked for an address or a name
  *   <frame> run <path>             the web page starts the Mac from a disk
+ *   <frame> xfer <begin TOTAL NAME|up TOTAL NAME|progress DONE|end>
+ *                                  a file transfer of the web UI's (TOTAL -1:
+ *                                  not known; "up" from the computer)
  *   <frame> disk <op> <n> <path>   the web page's Disks: op start, insert,
  *                                  add or remove (hard disk n), path on the card
  *   <frame> quit                   end the test
@@ -58,6 +61,7 @@ void bmmac_request_power(int power_off);
 void bmmac_request_coldstart(void);
 #include "../../src/port/bmmac.h"
 #include "../../src/port/mouse_track.h"
+#include "../../src/port/transfer.h"
 void emu_net_probe(int step);
 
 /* ---- Options ---------------------------------------------------------------- */
@@ -510,6 +514,16 @@ static void run_script(void)
 			char card[600];
 			bmmac_card_relative(line + n + 1, card, sizeof card);
 			bmmac_disk_interrupt(BMMAC_DISK_START, card[0] ? card : line + n + 1, 0);
+		} else if (strcmp(cmd, "xfer") == 0) {
+			char what[16], name[256] = "";
+			long long v = 0;
+			sscanf(line + n, "%15s %lld %255[^\n]", what, &v, name);
+			if (strcmp(what, "begin") == 0 || strcmp(what, "up") == 0)
+				transfer_begin(name, strcmp(what, "up") == 0, v);
+			else if (strcmp(what, "progress") == 0)
+				transfer_progress(v);
+			else
+				transfer_end(1);
 		} else if (strcmp(cmd, "disk") == 0) {
 			char op[16], path[512] = "";
 			int index = 0;

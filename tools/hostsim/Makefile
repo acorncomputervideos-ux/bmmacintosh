@@ -27,7 +27,7 @@ CFLAGS = -O2 -g
 WARN = -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare -Wno-missing-field-initializers
 
 # The front end both share.
-COMMON_SRCS = frontend.c keymap.c menu.c machine.c osd.c roms.c clip_text.c mouse_track.c
+COMMON_SRCS = frontend.c keymap.c menu.c machine.c osd.c roms.c clip_text.c mouse_track.c transfer.c
 COMMON_OBJS := $(addprefix $(OUT)/port/,$(COMMON_SRCS:.c=.o)) \
                $(addprefix $(OUT)/zlib/,$(ZLIB_SRCS:.c=.o)) \
                $(OUT)/host_sim.o $(OUT)/live.o

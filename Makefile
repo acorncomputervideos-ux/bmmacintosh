@@ -79,7 +79,7 @@ GEN := $(BUILD)/gen
 OBJS = src/main.o src/kernel.o src/logging.o src/options.o \
        src/port/frontend.o src/port/keymap.o src/port/menu.o src/port/machine.o \
        src/port/osd.o src/port/roms.o src/port/posix_extra.o src/port/fswrap.o \
-       src/port/clip_text.o src/port/mouse_track.o \
+       src/port/clip_text.o src/port/mouse_track.o src/port/transfer.o \
        src/network.o src/network_time_sync.o \
        src/webui/webui.o src/webui/webui_http.o src/webui/webui_fs.o \
        src/webui/webui_machine.o src/webui/webui_assets.o src/webui/webdav.o \

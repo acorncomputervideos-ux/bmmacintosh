@@ -34,6 +34,7 @@
 
 #include "../sdcard/sd_fs.h"
 #include "cp850.h"
+#include "../port/transfer.h"
 
 // Implemented in src/vice_network.cpp.
 extern "C" const char *circle_get_disk_volume(void);
@@ -331,6 +332,8 @@ BodyResult ReceiveBodyToFile(CSocket *socket, const char *temppath,
   if (file == 0) {
     return BODY_CREATE_FAILED;
   }
+  // Shown on the Pi's screen while it lasts (src/port/transfer.h).
+  transfer_begin(temppath, 1, (long long) total);
 
   unsigned long written = 0;
   BodyResult result = BODY_OK;
@@ -367,6 +370,7 @@ BodyResult ReceiveBodyToFile(CSocket *socket, const char *temppath,
     }
     buffered += (unsigned) n;
     written += (unsigned) n;
+    transfer_progress((long long) written);
     if (buffered == sizeof(s_io_buffer) || written == total) {
       if (sd_write(file, s_io_buffer, buffered) != SD_OK) {
         result = BODY_WRITE_FAILED;
@@ -377,6 +381,7 @@ BodyResult ReceiveBodyToFile(CSocket *socket, const char *temppath,
     CScheduler::Get()->Yield();
   }
 
+  transfer_end(result == BODY_OK);
   if (sd_close(file) != SD_OK && result == BODY_OK) {
     result = BODY_WRITE_FAILED;
   }
@@ -573,6 +578,8 @@ void WebUiFsDownload(CSocket *socket, const char *query) {
     return;
   }
 
+  transfer_begin(clean, 0, (long long) size);
+  unsigned long sent = 0;
   for (;;) {
     unsigned read_bytes = 0;
     if (sd_read(file, s_io_buffer, sizeof(s_io_buffer), &read_bytes) != SD_OK) {
@@ -584,8 +591,11 @@ void WebUiFsDownload(CSocket *socket, const char *query) {
     if (!webhttp::SendAll(socket, s_io_buffer, read_bytes)) {
       break;
     }
+    sent += read_bytes;
+    transfer_progress((long long) sent);
     CScheduler::Get()->Yield();
   }
+  transfer_end(sent == size);
   sd_close(file);
 }
 

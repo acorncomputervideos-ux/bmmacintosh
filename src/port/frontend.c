@@ -25,6 +25,7 @@
 #include "../host.h"
 #include "bmmac.h"
 #include "osd.h"
+#include "transfer.h"
 
 /* ---- Settings ------------------------------------------------------------- */
 
@@ -666,6 +667,152 @@ void bmmac_idle(void)
 		handle_requests();
 }
 
+/* ---- File transfers: the Mac paused, a window on the screen -------------------
+
+   While the network drive or the web page moves a big file, the Mac stops
+   and a window shows the transfer: the network then has the Pi's core to
+   itself, where it shared it with the Mac (and Wi-Fi above all crawled).
+   Small ones (the Finder's many little requests) leave the Mac running. The
+   Mac starts again 2 seconds after the last transfer, so a folder of files
+   is one pause. Esc lets it run meanwhile (slower), until the transfers
+   stop; the menu's Network can turn the pausing off. Each pause's total and
+   speed go in the log. */
+
+#define TRANSFER_PAUSE_BYTES (256 * 1024)
+#define TRANSFER_LINGER 2.0
+
+static int transfer_skip;            /* Esc: not until the transfers stop */
+static double transfer_seen;         /* when a transfer was last running */
+
+static void format_size(char *out, size_t size, double bytes)
+{
+	if (bytes < 1024.0 * 1024.0)
+		snprintf(out, size, "%.0f KB", bytes / 1024.0);
+	else
+		snprintf(out, size, "%.1f MB", bytes / (1024.0 * 1024.0));
+}
+
+static void draw_transfer(const struct transfer_info *t, double rate, double elapsed)
+{
+	char text[900], done[24], total[24], speed[24], session[24], bar[40], left[48];
+	const char *name = t->name[0] == '/' ? t->name + 1 : t->name;
+	int n = 0;
+	format_size(done, sizeof done, (double) t->done);
+	format_size(speed, sizeof speed, rate);
+	format_size(session, sizeof session, (double) (t->bytes + (t->active ? t->done : 0)));
+	if (t->active) {
+		if (t->total > 0) {
+			int fill = (int) (30.0 * (double) t->done / (double) t->total), i;
+			if (fill > 30)
+				fill = 30;
+			bar[0] = '[';
+			for (i = 0; i < 30; i++)
+				bar[1 + i] = i < fill ? '#' : '.';
+			bar[31] = ']';
+			bar[32] = '\0';
+			format_size(total, sizeof total, (double) t->total);
+			if (rate > 512.0) {
+				double secs = (double) (t->total - t->done) / rate;
+				if (secs < 90)
+					snprintf(left, sizeof left, ", about %.0f seconds left", secs < 1 ? 1 : secs);
+				else
+					snprintf(left, sizeof left, ", about %.0f minutes left", secs / 60);
+			} else {
+				left[0] = '\0';
+			}
+			n = snprintf(text, sizeof text,
+			             "%s\n  %.60s\n\n  %s  %s of %s\n  %s a second%s\n",
+			             t->upload ? "Receiving from your computer:" : "Sending to your computer:",
+			             name, bar, done, total, speed, left);
+		} else {
+			n = snprintf(text, sizeof text,
+			             "%s\n  %.60s\n\n  %s so far, %s a second\n",
+			             t->upload ? "Receiving from your computer:" : "Sending to your computer:",
+			             name, done, speed);
+		}
+	} else {
+		n = snprintf(text, sizeof text, "Waiting for more files...\n\n\n\n");
+	}
+	if (n < 0 || (size_t) n >= sizeof text)
+		n = (int) strlen(text);
+	snprintf(text + n, sizeof text - n,
+	         "\nSo far: %u file%s finished, %s moved in %.0f seconds%s.\n\n"
+	         "The Mac is paused, so the transfer has the Pi to itself.\n"
+	         "It carries on 2 seconds after the last file.",
+	         t->files, t->files == 1 ? "" : "s", session, elapsed,
+	         t->failed ? " (some broke off)" : "");
+	osd_show_text("File Transfer", text, "Esc: use the Mac meanwhile (slower)");
+}
+
+/* Pauses the Mac while a big transfer runs (called each frame, and while
+   the Mac is stopped). TRUE if it paused, and the screen needs drawing
+   again. */
+static int transfer_pause(void)
+{
+	struct transfer_info t;
+	double now = host_time();
+	transfer_get(&t);
+	if (t.active)
+		transfer_seen = now;
+	else if (transfer_skip && now - transfer_seen > TRANSFER_LINGER)
+		transfer_skip = FALSE;
+	if (!t.active || transfer_skip || !bmmac_setting_on("transfer_pause", TRUE)
+	    || (t.total < 512 * 1024 && t.done < TRANSFER_PAUSE_BYTES))
+		return FALSE;
+
+	int was_open = osd_is_open();
+	double start = now, last_draw = 0.0, rate = 0.0, rate_time = now, idle_since = 0.0;
+	long long base = t.done, rate_bytes = 0, moved = 0;
+	emu_release_keys();
+	transfer_session_reset();
+	if (!was_open)
+		osd_open();
+	printf("BMMacintosh: the Mac paused for a file transfer\n");
+	for (;;) {
+		transfer_get(&t);
+		now = host_time();
+		/* Bytes moved since the pause began. */
+		moved = t.bytes + (t.active ? t.done : 0) - base;
+		if (now - rate_time >= 0.5) {
+			double r = (double) (moved - rate_bytes) / (now - rate_time);
+			rate = rate == 0.0 ? r : rate * 0.6 + r * 0.4;
+			rate_time = now;
+			rate_bytes = moved;
+		}
+		if (t.active) {
+			transfer_seen = now;
+			idle_since = 0.0;
+		} else if (idle_since == 0.0) {
+			idle_since = now;
+		}
+		if (!t.active && now - idle_since >= TRANSFER_LINGER)
+			break;
+		if (now - last_draw >= 0.25) {
+			draw_transfer(&t, rate, now - start);
+			last_draw = now;
+		}
+		/* Waits for the display's next refresh: Circle's tasks (the
+		   network, Wi-Fi, the web UI) run all the while. */
+		if (osd_poll_key(FALSE) == OSD_KEY_BACK) {
+			transfer_skip = TRUE;
+			break;
+		}
+		bmmac_idle();
+	}
+	{
+		double secs = host_time() - start - (idle_since > 0.0 ? host_time() - idle_since : 0.0);
+		char size[24];
+		format_size(size, sizeof size, (double) moved);
+		printf("BMMacintosh: file transfer: %u file%s, %s in %.1f s (%.0f KB/s)%s\n",
+		       t.files, t.files == 1 ? "" : "s", size, secs,
+		       secs > 0.0 ? (double) moved / 1024.0 / secs : 0.0,
+		       transfer_skip ? ", the Mac running again (Esc)" : "");
+	}
+	if (!was_open)
+		osd_close();
+	return TRUE;
+}
+
 /* ---- The frame --------------------------------------------------------------- */
 
 static int speed_percent = 100;
@@ -695,6 +842,9 @@ static void show_network_address(void)
 void bmmac_frame(void)
 {
 	double now;
+
+	if (transfer_pause())
+		frame_due = 0.0;     /* the Mac's pace starts afresh */
 
 	if (!osd_view) {
 		/* What's drawn over the Mac's screen (a notification, the disk
@@ -756,6 +906,8 @@ void bmmac_stopped(const char *why)
 		osd_message(text, FALSE);
 		while (key < 0) {
 			bmmac_idle();
+			if (transfer_pause())
+				osd_message(text, FALSE);
 			host_video_present(TRUE);
 			if (request_coldstart || request_disk) {
 				handle_requests();

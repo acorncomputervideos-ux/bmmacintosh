@@ -43,6 +43,7 @@
 #include <string.h>
 
 #include "../sdcard/sd_fs.h"
+#include "../port/transfer.h"
 
 namespace {
 
@@ -484,12 +485,16 @@ public:
     } else if (GetHeader(request, "Content-Length", value, sizeof(value))) {
       m_left = strtoul(value, 0, 10);
     }
+    m_left_start = m_left;
     m_done = !m_chunked && m_left == 0;
     m_continue = GetHeader(request, "Expect", value, sizeof(value)) &&
                  CiEqual(value, "100-continue");
   }
 
   bool Empty(void) const { return m_done; }
+
+  // The body's length, or -1 when it isn't known (chunked).
+  long long Length(void) const { return m_chunked ? -1 : (long long) m_left_start; }
 
   // Tells a client waiting for "100 Continue" to send the body. Once.
   bool Go(void) {
@@ -615,6 +620,7 @@ private:
   unsigned m_pre_len;
   bool m_chunked;
   unsigned long m_left;
+  unsigned long m_left_start;
   unsigned long m_chunk_left;
   bool m_done;
   bool m_error;
@@ -1184,6 +1190,8 @@ void Get(CWebDavConnection *c, const char *path, bool head) {
   Response r(c);
   r.Begin(200, ContentType(path), (long) info.size, extra);
   if (!head && !r.Failed()) {
+    // Shown on the Pi's screen while it lasts (src/port/transfer.h).
+    transfer_begin(path, 0, (long long) info.size);
     unsigned long left = info.size;
     while (left > 0) {
       unsigned got = 0;
@@ -1191,8 +1199,10 @@ void Get(CWebDavConnection *c, const char *path, bool head) {
       if (sd_read(f, s_io, want, &got) != SD_OK || got == 0) break;
       if (!c->Send(s_io, got)) break;
       left -= got;
+      transfer_progress((long long) (info.size - left));
       c->Yield();
     }
+    transfer_end(left == 0);
   }
   sd_close(f);
 }
@@ -1253,7 +1263,10 @@ void Put(CWebDavConnection *c, const char *path, Body *body) {
     SendStatus(c, 409);
     return;
   }
-  // Gathered a buffer at a time (see webui_fs.cpp's uploads).
+  // Gathered a buffer at a time (see webui_fs.cpp's uploads). Shown on
+  // the Pi's screen while it lasts (src/port/transfer.h).
+  transfer_begin(path, 1, body->Length());
+  long long received = 0;
   unsigned buffered = 0;
   int status = 0;
   for (;;) {
@@ -1263,6 +1276,8 @@ void Put(CWebDavConnection *c, const char *path, Body *body) {
       break;
     }
     buffered += (unsigned) n;
+    received += n;
+    transfer_progress(received);
     if (buffered == kIoChunk || (n == 0 && buffered > 0)) {
       if (sd_write(f, s_io, buffered) != SD_OK) {
         status = 507;
@@ -1274,6 +1289,7 @@ void Put(CWebDavConnection *c, const char *path, Body *body) {
     c->Yield();
   }
   if (sd_close(f) != SD_OK && status == 0) status = 507;
+  transfer_end(status == 0);
   if (status != 0) {
     sd_unlink(target);
     if (status == 400) return;  // the client has gone

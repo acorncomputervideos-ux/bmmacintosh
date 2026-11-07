@@ -1,0 +1,49 @@
+/*
+ * transfer.h - the web UI's file transfers (the network drive's and the web
+ * page's), for the screen.
+ *
+ * The web UI's task says what it is sending or receiving and how far it
+ * has got; the emulator reads it. While a big one runs, the Mac is paused
+ * and a window on the screen shows it (frontend.c): the network then has
+ * the Pi's core to itself (it shares the Mac's otherwise, and Wi-Fi above
+ * all crawled).
+ *
+ * Both run on the same core, one at a time: no locking.
+ *
+ * This file is part of BMMacintosh, a bare metal 68k Macintosh emulator for
+ * the Raspberry Pi. See LICENSE for licensing details.
+ */
+
+#ifndef BMMAC_TRANSFER_H
+#define BMMAC_TRANSFER_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* The web UI's side. NAME is the file's path on the card; TOTAL its size,
+   or -1 when it isn't known (a chunked upload). */
+void transfer_begin(const char *name, int upload, long long total);
+void transfer_progress(long long done);
+void transfer_end(int ok);
+
+/* The emulator's side. */
+struct transfer_info {
+	int active;               /* one is running */
+	char name[256];
+	int upload;               /* from the computer to the card */
+	long long total, done;    /* total -1: not known */
+	unsigned serial;          /* goes up with each transfer begun */
+	/* Since transfer_session_reset(): files finished, and their bytes. */
+	unsigned files;
+	long long bytes;
+	int failed;               /* how many broke off */
+};
+void transfer_get(struct transfer_info *info);
+void transfer_session_reset(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
