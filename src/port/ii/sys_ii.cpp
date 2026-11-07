@@ -338,10 +338,14 @@ void SysEject(void *arg)
 	f->name[0] = '\0';
 }
 
+/* Formatting a disk (Mac OS's Initialize, before it writes the volume):
+   an image needs nothing done, as Basilisk II's own sys_unix.cpp has it.
+   The floppy driver (sony.cpp) asks this; refusing made every floppy's
+   initializing fail ("Initialization failed!"). */
 bool SysFormat(void *arg)
 {
-	(void) arg;
-	return false;
+	bm_file *f = (bm_file *) arg;
+	return f != NULL && has_disk(f) && !f->read_only;
 }
 
 bool SysIsReadOnly(void *arg)

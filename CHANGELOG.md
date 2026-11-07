@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Floppy disks can be initialized on the Mac II: Mac OS asks the floppy
+  driver to format the disk first, and BMMacintosh's `SysFormat()` always
+  said it failed ("Initialization failed!"), so a new blank floppy from
+  the web page couldn't be used. It succeeds now for an image in the drive
+  that can be written, as in Basilisk II's own Unix version (hard disks
+  never asked it)
 - The web page looks like a desktop of the early 90s: a grey patterned
   desktop, a menu bar (its menus go to the windows; the Pi's status at the
   right), black-outlined windows with striped title bars and close boxes,
