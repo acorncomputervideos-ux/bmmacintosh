@@ -93,7 +93,10 @@ change when the Mac restarts (*Restart the Mac*). *Insert a Floppy Disk*
 puts a floppy image (400K, 800K, 1.4 MB, raw or DiskCopy 4.2) in one of
 the two floppy drives while the Mac runs, *Insert a CD-ROM* an `.iso` or
 `.toast` image in the CD-ROM drive; the Mac ejects them (Command-E, or
-dragging them to the Trash). *Shared Folder* makes the card's `shared`
+dragging them to the Trash), or *Eject a Floppy or CD-ROM* asks Mac OS to
+(as the web page's Eject does: when Mac OS is next idle, and not while a
+file on the disk is open). A hard disk is taken off under *Hard Disks*
+(*Remove*), from the Mac's next start. *Shared Folder* makes the card's `shared`
 folder a disk on the Mac's desktop, *SD Card*: files copied into it (from
 a PC, or over the network drive) are the Mac's, and the other way round. The Mac's
 files keep their type and creator, and their resource forks, in `.finf`

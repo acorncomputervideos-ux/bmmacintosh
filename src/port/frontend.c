@@ -610,6 +610,9 @@ void bmmac_disk_note(const char *text)
 	snprintf(disk_result, sizeof disk_result, "%s", text);
 	printf("Web UI: %s\n", disk_result);
 	disks_done++;
+	/* On the Pi's screen too (an eject asked from the menu, or the web
+	   page). */
+	osd_notify(disk_result);
 }
 
 int bmmac_pending_requests(void)

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- *Eject a Floppy or CD-ROM* in the Mac II's menu (F12), as the web page's
+  Eject does, and an eject's outcome shown on the Pi's screen as well
 - StuffIt archives (and other files) copied to the SD Card disk open in
   StuffIt Expander again. Modern macOS's `._` files mostly have no type or
   creator in them (only a download's quarantine and the like), and taking

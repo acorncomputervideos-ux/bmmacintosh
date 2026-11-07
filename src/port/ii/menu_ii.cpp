@@ -242,8 +242,35 @@ static void memory_menu(void)
 /* ---- The menu's items ------------------------------------------------------------- */
 
 enum {
-	I_FLOPPY = 100, I_CDROM, I_HD, I_SHARED, I_ROM, I_MEMORY, I_RESTART
+	I_FLOPPY = 100, I_CDROM, I_EJECT, I_HD, I_SHARED, I_ROM, I_MEMORY, I_RESTART
 };
+
+/* Ejects a floppy or the CD as the web page's Eject does (see "Ejecting"
+   above): when Mac OS is next idle, once the menu has closed. */
+static bool eject_menu(void)
+{
+	const char *names[4];
+	int slots[3], n = 0;
+	for (int i = 0; i < 3; i++) {
+		const char *in = i == 2 ? PrefsFindString("cdrom") : ii_floppy_name(i);
+		if (in != NULL && in[0]) {
+			slots[n] = i;
+			names[n++] = bmmac_base_name(in);
+		}
+	}
+	names[n] = NULL;
+	if (n == 0) {
+		osd_message("There is no floppy disk or CD-ROM in the Mac.", TRUE);
+		return false;
+	}
+	int i = osd_choose("Eject", names, 0);
+	if (i < 0)
+		return false;
+	char message[200];
+	emu_disk_request(BMMAC_DISK_EJECT, "", slots[i], message, sizeof message);
+	osd_notify(message);
+	return true;
+}
 
 int emu_menu_items(struct osd_item *items, int max)
 {
@@ -262,6 +289,7 @@ int emu_menu_items(struct osd_item *items, int max)
 		{"Insert a Floppy Disk", floppies, OSD_ITEM_SUBMENU, I_FLOPPY},
 		{"Insert a CD-ROM", cd && cd[0] ? bmmac_base_name(cd) : "(none)", OSD_ITEM_SUBMENU,
 		 I_CDROM},
+		{"Eject a Floppy or CD-ROM", NULL, OSD_ITEM_SUBMENU, I_EJECT},
 		{"Hard Disks", NULL, OSD_ITEM_SUBMENU, I_HD},
 		{"Shared Folder (SD Card disk)", NULL, bmmac_check(extfs != NULL && extfs[0]), I_SHARED},
 		{"ROM", PrefsFindString("rom") ? bmmac_base_name(PrefsFindString("rom")) : "(none)",
@@ -283,6 +311,8 @@ int emu_menu_choose(int id)
 	case I_CDROM:
 		insert_disk(true);
 		return TRUE;
+	case I_EJECT:
+		return eject_menu();
 	case I_HD:
 		hard_disks_menu();
 		return FALSE;

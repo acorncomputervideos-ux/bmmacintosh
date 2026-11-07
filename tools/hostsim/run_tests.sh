@@ -350,13 +350,13 @@ run "$II" iipadmenu 60 "" '600 pad 0 0\n610 pad 0 0x0100\n614 pad 0 0\n630 shot 
 menu_shown iipadmenu menu
 
 echo "Settings are saved"
-# Menu, Video (eight down), Show Disk Activity (five down): off.
-run "$II" iisettings 60 "" "$(key $F12 600)$(downs 8 610)$(key $ENTER 650)$(downs 5 660)$(key $ENTER 690)$(key $F12 700)720 quit\n"
+# Menu, Video (nine down), Show Disk Activity (five down): off.
+run "$II" iisettings 60 "" "$(key $F12 600)$(downs 9 610)$(key $ENTER 650)$(downs 5 660)$(key $ENTER 690)$(key $F12 700)720 quit\n"
 check_cfg iisettings bmmac.cfg "^disk_activity=0" "Video > Show Disk Activity saved to bmmac.cfg"
 
 echo "Memory: 64 MB, and the Mac restarts"
-# Menu, Memory (five down), one down from 32 MB, then out.
-run "$II" iimemory 60 "" "$(key $F12 600)$(downs 5 610)$(key $ENTER 640)$(downs 1 650)$(key $ENTER 660)$(key $ESC 670)1300 shot a.ppm\n1301 quit\n"
+# Menu, Memory (six down), one down from 32 MB, then out.
+run "$II" iimemory 60 "" "$(key $F12 600)$(downs 6 610)$(key $ENTER 640)$(downs 1 650)$(key $ENTER 660)$(key $ESC 670)1300 shot a.ppm\n1301 quit\n"
 check_cfg iimemory macii.prefs "^ramsize 67108864" "64 MB saved in macii.prefs"
 check_log iimemory "68040, 64 MB" "the Mac restarted with 64 MB"
 question iimemory a
@@ -388,8 +388,8 @@ check_log iicoldstart "Web UI: restart" "restarts the Mac"
 question iicoldstart a
 
 echo "Switching to the Mac Plus"
-# Menu, Machine (seven down), Mac Plus, Yes (up from No).
-run "$II" iiswitch 60 "" "$(key $F12 600)$(downs 7 610)$(key $ENTER 640)$(key $ENTER 650)$(key $UP 660)$(key $ENTER 670)700 quit\n"
+# Menu, Machine (eight down), Mac Plus, Yes (up from No).
+run "$II" iiswitch 60 "" "$(key $F12 600)$(downs 8 610)$(key $ENTER 640)$(key $ENTER 650)$(key $UP 660)$(key $ENTER 670)700 quit\n"
 check_cfg iiswitch config.txt "^kernel=macplus_2712\.img" "config.txt starts the Mac Plus on the Pi 5"
 check_cfg iiswitch config.txt "^kernel=macplus8-rpi4\.img" "and on the Pi 4"
 check_cfg iiswitch config.txt "^kernel=macplus8-32\.img" "the Pi 3 is left alone"
