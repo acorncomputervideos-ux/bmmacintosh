@@ -521,4 +521,38 @@ extern "C" int circle_get_network_status(void) {
   return s_status;
 }
 
+// Once a second (host_network_watch): the Wi-Fi link and the address, as
+// they change, in the log. When the network "drops", the log then says
+// whether the Pi lost the access point (and got it back), or kept it.
+extern "C" void host_network_watch(void) {
+  static int link = -1;
+  static char address[32];
+  static double since;
+  if (s_wlan == 0 || s_net == 0) {
+    return;
+  }
+  CLogger *log = CLogger::Get();
+  double now = host_time();
+  int up = s_wlan->IsLinkUp() ? 1 : 0;
+  if (up != link) {
+    if (link == 1) {
+      log->Write(FromNetwork, LogWarning, "Wi-Fi: lost the access point");
+    } else if (link == 0) {
+      log->Write(FromNetwork, LogNotice, "Wi-Fi: joined the access point again, after %.0f s",
+                 now - since);
+    }
+    link = up;
+    since = now;
+  }
+  char ip[32] = "";
+  circle_get_network_ip_address(ip, sizeof ip);
+  if (strcmp(ip, address) != 0) {
+    if (address[0] != '\0' || ip[0] != '\0') {
+      log->Write(FromNetwork, LogNotice, "Network address: %s",
+                 ip[0] != '\0' ? ip : "none");
+    }
+    strcpy(address, ip);
+  }
+}
+
 extern "C" const char *circle_get_disk_volume(void) { return "SD"; }

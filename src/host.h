@@ -127,6 +127,9 @@ int host_network_address(char *address, unsigned size);
 /* Network state for people: "Wi-Fi 192.168.1.50", "Off", "Ethernet:
    waiting for address"... */
 void host_network_status(char *text, unsigned size);
+/* Called once a second: logs the Wi-Fi link going down and coming back,
+   and the address changing, for a bug report. */
+void host_network_watch(void);
 /* Runs FN(ARG) in the background, for work that waits on the network
    (connecting to a server that doesn't answer takes minutes), which the
    emulator must not wait for. On the Pi it is a Circle task: it runs

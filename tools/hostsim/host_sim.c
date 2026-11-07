@@ -709,6 +709,10 @@ int host_run_in_background(void (*fn)(void *arg), void *arg)
 	return 1;
 }
 
+void host_network_watch(void)
+{
+}
+
 void host_network_status(char *text, unsigned size)
 {
 	char ip[32];

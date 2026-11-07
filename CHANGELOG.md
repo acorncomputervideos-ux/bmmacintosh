@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The log says when Wi-Fi loses its access point, when it joins it again
+  (and after how long), and when the Pi's address changes
 - **Delete** on the web page's disk images: an image the Mac isn't using
   (not in a drive, not one of its hard disks, not open since it started)
   is deleted from the card, such as a blank floppy that didn't initialize

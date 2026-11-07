@@ -937,6 +937,7 @@ void bmmac_frame(void)
 		emu_sync_disks();
 		sync_files();
 		show_network_address();
+		host_network_watch();
 	}
 	handle_requests();
 }
