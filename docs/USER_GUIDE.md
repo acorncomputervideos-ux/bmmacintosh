@@ -210,7 +210,10 @@ Wi-Fi needs the files in the `firmware` folder, which `build_sdcard.sh` puts
 there.
 
 Once the Pi has an address, it is shown at the bottom of the screen for a
-few seconds (`WEB UI: HTTP://192.168.1.50/`) and written to the log.
+few seconds (`WEB UI: HTTP://192.168.1.50/`) and written to the log, and
+the menu's *Network* shows it with the network drive's address, and how
+the Mac II's own network is (waiting for the Pi's network, ready for Mac
+OS's TCP/IP, or in use).
 Open that address in a browser: the page shows the network drive's address
 (the same, with `/sd/` after it) and how to connect.
 
@@ -262,6 +265,17 @@ Things to know:
   **Reboot the Pi**, **Shut down** (the Pi halts; switch it off, then on
   again to restart; a Pi 400 switches itself off, and its power key starts
   it again).
+- **Disks**: the Mac's disks now, and the disk images in the card's
+  `disks` folder (and the folders in it). On the Mac II, **Insert** puts
+  a floppy or CD-ROM image in a drive while the Mac runs (eject it on the
+  Mac, Command-E), **Add** makes a hard disk image one of its hard disks
+  and **Remove** takes one off (from the Mac's next start), and **Start
+  from** restarts the Mac from any image. On the Mac Plus, **Start from**
+  changes its one disk and restarts it.
+- **Clipboard** (the Mac II): text a Mac program copies shows here, to
+  copy to your computer; text sent from here is what the Mac pastes next
+  (Command-V). Text only, up to 64 KB, in the Mac's character set
+  (MacRoman): characters it hasn't become "?".
 - **Settings**: `config.txt`, `cmdline.txt`, `bmmac.cfg`, `macii.prefs` and
   `wpa_supplicant.conf`, edited in the browser; changes take effect after
   a reboot, and the previous version is kept as `.bak`. A mistake in
@@ -270,9 +284,6 @@ Things to know:
 - **System**: the Pi's model, address, uptime, temperature, power and
   throttling warnings, and a way to turn the web page and network drive
   off until the next reboot.
-
-Disk images are started from BMMacintosh's own menu (F12): the web page's
-old file manager, which could also start them, is gone.
 
 The web page and the network drive are open to anyone on your network. To
 protect them with a PIN, set `webui_pin=1234` in `cmdline.txt`; the

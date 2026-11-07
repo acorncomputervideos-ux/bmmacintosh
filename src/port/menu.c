@@ -432,9 +432,9 @@ static void network_menu(void)
 	enum { N_DEVICE, N_SCAN, N_SSID, N_PASSWORD, N_COUNTRY, N_WEBUI, N_PIN, N_TIMEZONE, N_REBOOT };
 	static const char *const devices[] = {"off", "ethernet", "wifi", NULL};
 	static const char *const device_names[] = {"Off", "Ethernet", "Wi-Fi", NULL};
-	int sel = 2;
+	int sel = 0, first = TRUE;
 	for (;;) {
-		char status[64], tz[16];
+		char status[64], tz[16], address[64], web[96], drive[96], mac_net[128];
 		const char *net = host_option("network", "off");
 		const char *pin = host_option("webui_pin", "");
 		int device = strcmp(net, "ethernet") == 0 ? 1 : strcmp(net, "wifi") == 0 ? 2 : 0;
@@ -443,6 +443,15 @@ static void network_menu(void)
 
 		read_wifi_config();
 		host_network_status(status, sizeof(status));
+		/* Where the web page and the network drive are, once the Pi has
+		   an address, and how the Mac II's own network is. */
+		web[0] = drive[0] = mac_net[0] = '\0';
+		if (setting_on("webui", TRUE) && host_network_address(address, sizeof(address))) {
+			snprintf(web, sizeof(web), "Web page: http://%s/", address);
+			snprintf(drive, sizeof(drive), "Network drive: http://%s/sd/", address);
+		}
+		if (emu_network_text() != NULL)
+			snprintf(mac_net, sizeof(mac_net), "The Mac's network: %s", emu_network_text());
 		if (minutes == 0)
 			strcpy(tz, "UTC");
 		else
@@ -450,6 +459,9 @@ static void network_menu(void)
 		{
 			struct osd_item items[] = {
 				{status, NULL, OSD_ITEM_LABEL, -1},
+				{web, NULL, OSD_ITEM_LABEL, -1},
+				{drive, NULL, OSD_ITEM_LABEL, -1},
+				{mac_net, NULL, OSD_ITEM_LABEL, -1},
 				{"", NULL, OSD_ITEM_LABEL, -1},
 				{"Network", device_names[device], OSD_ITEM_SUBMENU, N_DEVICE},
 				{"Scan for Wi-Fi Networks", NULL, OSD_ITEM_SUBMENU, N_SCAN},
@@ -463,7 +475,20 @@ static void network_menu(void)
 				{"Changes apply after a reboot.", NULL, OSD_ITEM_LABEL, -1},
 				{"Reboot Now", NULL, 0, N_REBOOT},
 			};
-			chosen = osd_menu("Network", items, sizeof(items) / sizeof(items[0]), &sel);
+			/* The address and network lines only when there is something
+			   to say. */
+			struct osd_item shown[sizeof(items) / sizeof(items[0])];
+			int n = 0;
+			for (i = 0; i < (int) (sizeof(items) / sizeof(items[0])); i++) {
+				const char *t = items[i].text;
+				if ((t == web || t == drive || t == mac_net) && t[0] == '\0')
+					continue;
+				if (first && items[i].id == N_DEVICE)
+					sel = n;
+				shown[n++] = items[i];
+			}
+			first = FALSE;
+			chosen = osd_menu("Network", shown, n, &sel);
 		}
 		switch (chosen) {
 		case N_DEVICE:

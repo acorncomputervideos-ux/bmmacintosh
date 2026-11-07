@@ -28,6 +28,7 @@
 
 bool ii_insert_disk(const char *path, bool cdrom);
 const char *ii_floppy_name(int n);
+int ii_drive_count(bool cdrom);
 
 /* ---- Keyboard and mouse -------------------------------------------------------- */
 
@@ -300,7 +301,84 @@ int emu_menu_choose(int id)
 	return TRUE;
 }
 
-/* ---- The web UI's "start this file" ------------------------------------------------ */
+/* ---- The web page's Disks ------------------------------------------------------------ */
+
+void emu_disks(struct bmmac_disks *d)
+{
+	memset(d, 0, sizeof *d);
+	const char *name;
+	for (int i = 0; i < BMMAC_HARD_DISKS && (name = PrefsFindString("disk", i)) != NULL; i++)
+		bmmac_card_relative(name, d->hard[d->hard_count++], BMMAC_DISK_PATH);
+	for (int i = 0; i < 2; i++)
+		bmmac_card_relative(ii_floppy_name(i), d->floppy[i], BMMAC_DISK_PATH);
+	const char *cd = PrefsFindString("cdrom");
+	bmmac_card_relative(cd != NULL ? cd : "", d->cdrom, BMMAC_DISK_PATH);
+}
+
+void emu_disk_request(int op, const char *path, int index, char *message, unsigned size)
+{
+	const char *name = bmmac_base_name(path);
+	switch (op) {
+	case BMMAC_DISK_START:
+		emu_autostart(path);
+		snprintf(message, size, "The Mac starts again, from %s.", name);
+		return;
+	case BMMAC_DISK_INSERT: {
+		bool cdrom = is_cd_image(path);
+		if (!cdrom && !is_floppy_image(path)) {
+			snprintf(message, size, "%s isn't a floppy (400K, 800K or 1.4 MB) or a "
+			         "CD-ROM image: add it as a hard disk.", name);
+			return;
+		}
+		if (ii_drive_count(cdrom) == 0) {
+			snprintf(message, size, "The Mac isn't running: start it first.");
+			return;
+		}
+		if (!ii_insert_disk(path, cdrom)) {
+			snprintf(message, size, "%s", cdrom ? "Eject the CD-ROM on the Mac first (Command-E)."
+			         : "Both floppy drives are full: eject one on the Mac first.");
+			return;
+		}
+		snprintf(message, size, "%s is in the %s.", name, cdrom ? "CD-ROM drive" : "floppy drive");
+		return;
+	}
+	case BMMAC_DISK_ADD: {
+		int n = 0;
+		const char *s;
+		while ((s = PrefsFindString("disk", n)) != NULL) {
+			if (strcmp(s, path) == 0) {
+				snprintf(message, size, "%s is a hard disk already.", name);
+				return;
+			}
+			n++;
+		}
+		if (n >= BMMAC_HARD_DISKS) {
+			snprintf(message, size, "The Mac has %d hard disks: remove one first.", n);
+			return;
+		}
+		PrefsAddString("disk", path);
+		SavePrefs();
+		snprintf(message, size, "%s is a hard disk when the Mac restarts.", name);
+		return;
+	}
+	case BMMAC_DISK_REMOVE: {
+		const char *s = PrefsFindString("disk", index);
+		if (index < 0 || s == NULL) {
+			snprintf(message, size, "There is no hard disk %d.", index + 1);
+			return;
+		}
+		char removed[BMMAC_DISK_PATH];
+		snprintf(removed, sizeof removed, "%s", bmmac_base_name(s));
+		PrefsRemoveItem("disk", index);
+		SavePrefs();
+		snprintf(message, size, "%s is gone when the Mac restarts.", removed);
+		return;
+	}
+	}
+	snprintf(message, size, "Unknown request.");
+}
+
+/* ---- Starting from a disk ------------------------------------------------------------- */
 
 /* A floppy or CD-ROM image goes into its drive (the first floppy drive),
    a hard disk image becomes the first hard disk, and the Mac restarts

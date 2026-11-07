@@ -53,8 +53,8 @@ it available; see the [third-party](docs/THIRD_PARTY.md) acknowledgements.
 - A menu (F12) for the disks, the ROM, the memory, the machine, video,
   sound and network
 - Optional Ethernet or Wi-Fi: the SD card is a network drive in Windows,
-  macOS and Linux file managers (WebDAV), and a web page has the Pi's
-  settings and controls
+  macOS and Linux file managers (WebDAV), and a web page has the Mac's
+  disks, the Mac II's clipboard, and the Pi's settings and controls
 
 ## ROMs and System software
 

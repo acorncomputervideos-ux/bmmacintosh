@@ -13,6 +13,8 @@
 <link rel="modulepreload" href="/js/dashboard.js">
 <link rel="modulepreload" href="/js/editor.js">
 <link rel="modulepreload" href="/js/drive.js">
+<link rel="modulepreload" href="/js/disks.js">
+<link rel="modulepreload" href="/js/clipboard.js">
 </head>
 <body>
 <header class="top">
@@ -68,6 +70,28 @@
       <button class="btn btn-danger" id="qa-shutdown" type="button">Shut down<small>Then switch the power off</small></button>
     </div>
     <p class="msg" id="action-msg" role="status"></p>
+  </section>
+
+  <section class="card" aria-labelledby="disks-h">
+    <h2 id="disks-h">Disks</h2>
+    <div id="disks-now"></div>
+    <p class="msg" id="disks-msg" role="status"></p>
+    <h3>Disk images on the card</h3>
+    <p class="note-top" id="disks-note"></p>
+    <ul class="images" id="disks-images"></ul>
+  </section>
+
+  <section class="card" aria-labelledby="clip-h" id="clip-card" hidden>
+    <h2 id="clip-h">Clipboard</h2>
+    <p>Text copied on the Mac shows here. Text sent from here is what the Mac pastes next.</p>
+    <textarea class="clip-text" id="clip-text" rows="5" spellcheck="false" aria-label="The Mac's clipboard"></textarea>
+    <div class="clip-bar">
+      <span class="clip-from" id="clip-from"></span>
+      <button class="btn btn-small" id="clip-refresh" type="button">Refresh</button>
+      <button class="btn btn-small" id="clip-copy" type="button">Copy</button>
+      <button class="btn btn-small btn-primary" id="clip-send" type="button">Send to the Mac</button>
+    </div>
+    <p class="msg" id="clip-msg" role="status"></p>
   </section>
 
   <section class="card" aria-labelledby="set-h">

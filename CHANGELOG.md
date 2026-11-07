@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- Disks on the web page: the Mac's disks, and the disk images in the
+  card's `disks` folder, with what each can do. On the Mac II, insert a
+  floppy or CD-ROM image while the Mac runs, add or remove hard disks, or
+  start from any image; on the Mac Plus, start from one. The Mac makes the
+  change between its frames, and the page shows what happened
+  (`src/webui/webui_disks.cpp`, `bmmac_disk_interrupt()`; tested by
+  `tools/disks` and `tools/hostsim`)
+- A shared clipboard for the Mac II: text a Mac program copies shows on
+  the web page, and text sent from the page is what the Mac pastes next.
+  Basilisk II's clipboard driver is BMMacintosh's own now
+  (`src/port/ii/clip_ii.cpp`, from its Unix one), with MacRoman and UTF-8
+  converted both ways (`src/port/clip_text.c`, tested against Python's
+  mac_roman codec by `tools/clipboard`). Not tried with Mac OS yet
+- The menu's *Network* shows the web page's and the network drive's
+  addresses, and how the Mac II's network is (waiting for the Pi's
+  network, ready for Mac OS's TCP/IP, or in use)
 - The SD card is a network drive: Windows (Map network drive), macOS
   (Connect to Server) and Linux file managers open
   `http://<the Pi>/sd/` as a folder of their own (WebDAV,

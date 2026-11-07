@@ -1,0 +1,161 @@
+// The Disks card: the Mac's disks now, the disk images in the card's
+// disks folder, and changing them (GET and POST /api/disks,
+// src/webui/webui_disks.cpp). The Mac makes a change between its frames;
+// the card waits for it ("done" goes up) and shows what happened.
+
+import { $, fmtBytes } from "./util.js";
+import * as api from "./api.js";
+
+let state = null;
+let busy = false;
+
+const base = (p) => p.slice(p.lastIndexOf("/") + 1);
+// The path below the disks folder, for the list.
+const shortPath = (p) => p.replace(/^\/disks\//, "");
+
+function setMsg(text, err) {
+  const m = $("disks-msg");
+  m.className = "msg" + (err ? " err" : "");
+  m.textContent = text || "";
+}
+
+function button(label, run, { danger = false } = {}) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "btn btn-small" + (danger ? " btn-danger" : "");
+  b.textContent = label;
+  b.disabled = busy;
+  b.addEventListener("click", run);
+  return b;
+}
+
+function row(label, value, buttons = []) {
+  const li = document.createElement("li");
+  const l = document.createElement("span");
+  l.className = "slot-label";
+  l.textContent = label;
+  const v = document.createElement("span");
+  v.className = "slot-value" + (value ? "" : " empty");
+  v.textContent = value ? base(value) : "empty";
+  if (value) v.title = value;
+  const acts = document.createElement("span");
+  acts.className = "slot-acts";
+  acts.append(...buttons);
+  li.append(l, v, acts);
+  return li;
+}
+
+function renderNow() {
+  const box = $("disks-now");
+  box.textContent = "";
+  const list = document.createElement("ul");
+  list.className = "slots";
+  if (state.machine === "ii") {
+    if (!state.hard.length) list.append(row("Hard disk", ""));
+    state.hard.forEach((p, i) => {
+      const acts = [];
+      if (i > 0) acts.push(button("Start from", () => start(p)));
+      acts.push(button("Remove", () => change("remove", { index: i },
+        "Remove " + base(p) + " from the Mac's hard disks? (The file stays on the card.)")));
+      list.append(row(i === 0 ? "Starts from" : "Hard disk " + (i + 1), p, acts));
+    });
+    list.append(row("Floppy drive 1", state.floppy[0]));
+    list.append(row("Floppy drive 2", state.floppy[1]));
+    list.append(row("CD-ROM drive", state.cdrom));
+    box.append(list);
+    const note = document.createElement("p");
+    note.className = "note";
+    note.textContent = "Hard disk changes take effect when the Mac restarts. " +
+      "Floppies and CD-ROMs go in now; eject them on the Mac (Command-E).";
+    box.append(note);
+  } else {
+    list.append(row("Disk", state.disk));
+    box.append(list);
+  }
+}
+
+const KIND = { floppy: "Floppy", cd: "CD-ROM", hard: "Hard disk", disk: "Disk" };
+
+function renderImages() {
+  const ul = $("disks-images");
+  ul.textContent = "";
+  const images = state.images.slice().sort((a, b) =>
+    a.path.localeCompare(b.path, undefined, { numeric: true, sensitivity: "base" }));
+  $("disks-note").textContent = images.length
+    ? (state.more ? "The first " + images.length + " are shown." : "")
+    : "None yet: copy disk images to the disks folder on the network drive.";
+  const inUse = new Set([...state.hard, ...state.floppy, state.cdrom, state.disk].filter(Boolean));
+  for (const img of images) {
+    const li = document.createElement("li");
+    const name = document.createElement("span");
+    name.className = "img-name";
+    name.textContent = shortPath(img.path);
+    const meta = document.createElement("span");
+    meta.className = "img-meta";
+    meta.textContent = KIND[img.kind] + " · " + fmtBytes(img.size) +
+      (inUse.has(img.path) ? " · in use" : "");
+    const acts = document.createElement("span");
+    acts.className = "img-acts";
+    if ((img.kind === "floppy" || img.kind === "cd") && !inUse.has(img.path)) {
+      acts.append(button("Insert", () => change("insert", { path: img.path })));
+    }
+    if (img.kind === "hard" && !state.hard.includes(img.path)) {
+      acts.append(button("Add", () => change("add", { path: img.path })));
+    }
+    acts.append(button("Start from", () => start(img.path)));
+    const text = document.createElement("span");
+    text.className = "img-text";
+    text.append(name, meta);
+    li.append(text, acts);
+    ul.append(li);
+  }
+}
+
+function render() {
+  renderNow();
+  renderImages();
+}
+
+function start(path) {
+  change("start", { path },
+    "Start the Mac again from " + base(path) + "?\n\nAnything not saved on the Mac is lost.");
+}
+
+async function change(op, args, question) {
+  if (busy) return;
+  if (question && !confirm(question)) return;
+  busy = true;
+  render();
+  setMsg("Asking the Mac…");
+  const before = state.done;
+  try {
+    await api.diskRequest(op, args);
+    // The Mac does it between frames: wait until it has.
+    for (let i = 0; i < 40; i++) {
+      await new Promise((r) => setTimeout(r, 250));
+      const s = await api.getDisks();
+      if (s.done !== before && !s.pending) {
+        state = s;
+        setMsg(s.result);
+        break;
+      }
+    }
+  } catch (e) {
+    setMsg(e.status && e.message ? e.message.replace(/^HTTP \d+ /, "") : "Couldn't ask the Mac — " + e.message, true);
+  }
+  busy = false;
+  await refresh();
+}
+
+export async function refresh() {
+  try {
+    state = await api.getDisks();
+    render();
+  } catch (e) {
+    $("disks-note").textContent = "Couldn't read the disks — " + e.message;
+  }
+}
+
+export function initDisks() {
+  refresh();
+}

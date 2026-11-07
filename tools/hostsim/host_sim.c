@@ -21,7 +21,9 @@
  *   <frame> audio                  print audio statistics
  *   <frame> webui <reboot|coldstart>  a request from the web UI
  *   <frame> netprobe <dhcp|dns>    the Mac II's network asked for an address or a name
- *   <frame> run <path>             the web UI starts a file
+ *   <frame> run <path>             the web page starts the Mac from a disk
+ *   <frame> disk <op> <n> <path>   the web page's Disks: op start, insert,
+ *                                  add or remove (hard disk n), path on the card
  *   <frame> quit                   end the test
  *
  * BMMAC_SIM_CONNECT_FRAMES=N makes background work (the modem's
@@ -54,7 +56,7 @@
 /* From src/port/platform.c, called by the web UI on the Pi. */
 void bmmac_request_power(int power_off);
 void bmmac_request_coldstart(void);
-void emu_autostart_interrupt(const char *path);
+#include "../../src/port/bmmac.h"
 void emu_net_probe(int step);
 
 /* ---- Options ---------------------------------------------------------------- */
@@ -514,7 +516,18 @@ static void run_script(void)
 			sscanf(line + n, "%d %i", &port, &bits);
 			gpio[port & 1] = bits;
 		} else if (strcmp(cmd, "run") == 0) {
-			emu_autostart_interrupt(line + n + 1);
+			char card[600];
+			bmmac_card_relative(line + n + 1, card, sizeof card);
+			bmmac_disk_interrupt(BMMAC_DISK_START, card[0] ? card : line + n + 1, 0);
+		} else if (strcmp(cmd, "disk") == 0) {
+			char op[16], path[512] = "";
+			int index = 0;
+			sscanf(line + n, "%15s %d %511[^\n]", op, &index, path);
+			int code = strcmp(op, "start") == 0 ? BMMAC_DISK_START
+			         : strcmp(op, "insert") == 0 ? BMMAC_DISK_INSERT
+			         : strcmp(op, "add") == 0 ? BMMAC_DISK_ADD : BMMAC_DISK_REMOVE;
+			if (!bmmac_disk_interrupt(code, path, index))
+				fprintf(stderr, "[sim] disk: another request waits\n");
 		} else if (strcmp(cmd, "shot") == 0) {
 			screenshot(line + n + 1);
 		} else if (strcmp(cmd, "netprobe") == 0) {

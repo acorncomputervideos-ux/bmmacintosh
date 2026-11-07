@@ -481,8 +481,11 @@ static void mouse_and_pads(void)
 
 static volatile int request_power = -1;   /* 0 reboot, 1 power off */
 static volatile int request_coldstart = FALSE;
-static char autostart_path[600];
-static volatile int request_autostart = FALSE;
+static char disk_path[600];
+static int disk_op, disk_index;
+static volatile int request_disk = FALSE;
+static char disk_result[200];
+static volatile unsigned disks_done;
 
 void bmmac_request_power(int power_off)
 {
@@ -499,20 +502,57 @@ void bmmac_request_coldstart(void)
 	request_coldstart = TRUE;
 }
 
-/* Called by the web UI ("start this file"), on core 0: the emulator takes
-   it up between frames (handle_requests()). One at a time. */
-void emu_autostart_interrupt(const char *path)
+/* Called by the web UI's task: the emulator takes it up between frames
+   (handle_requests()). One at a time. */
+int bmmac_disk_interrupt(int op, const char *card_path, int index)
 {
-	if (request_autostart)
-		return;
-	snprintf(autostart_path, sizeof autostart_path, "%s", path);
+	if (request_disk)
+		return FALSE;
+	disk_op = op;
+	disk_index = index;
+	if (card_path != NULL && card_path[0] != '\0')
+		bmmac_card_path(disk_path, sizeof disk_path, "",
+		                card_path[0] == '/' ? card_path + 1 : card_path);
+	else
+		disk_path[0] = '\0';
 	__sync_synchronize();
-	request_autostart = TRUE;
+	request_disk = TRUE;
+	return TRUE;
+}
+
+const char *bmmac_disk_result(int *pending, unsigned *done)
+{
+	if (pending != NULL)
+		*pending = request_disk;
+	if (done != NULL)
+		*done = disks_done;
+	return disk_result;
+}
+
+void bmmac_card_relative(const char *full, char *out, unsigned size)
+{
+	const char *root = bmmac_sd_root();
+	size_t len = strlen(root);
+	while (len > 0 && root[len - 1] == '/')
+		len--;
+	const char *colon = strstr(full, ":/");
+	if (full[0] == '\0') {
+		snprintf(out, size, "%s", "");
+	} else if (len > 0 && strncmp(full, root, len) == 0 && full[len] == '/') {
+		snprintf(out, size, "%s", full + len);
+	} else if (len == 0 && full[0] == '/') {
+		snprintf(out, size, "%s", full);
+	} else if (colon != NULL && strchr(full, '/') == colon + 1) {
+		/* "SD:/disks/x" */
+		snprintf(out, size, "%s", colon + 1);
+	} else {
+		snprintf(out, size, "%s", "");
+	}
 }
 
 int bmmac_pending_requests(void)
 {
-	return request_power >= 0 || request_coldstart || request_autostart;
+	return request_power >= 0 || request_coldstart || request_disk;
 }
 
 static void sync_files(void)
@@ -536,11 +576,14 @@ static void power(int off)
 
 static void handle_requests(void)
 {
-	if (request_autostart) {
+	if (request_disk) {
 		__sync_synchronize();
-		printf("Web UI: starting %s\n", autostart_path);
-		emu_autostart(autostart_path);
-		request_autostart = FALSE;
+		emu_disk_request(disk_op, disk_path, disk_index, disk_result,
+		                 sizeof disk_result);
+		printf("Web UI: %s\n", disk_result);
+		disks_done++;
+		__sync_synchronize();
+		request_disk = FALSE;
 	}
 	if (request_coldstart) {
 		request_coldstart = FALSE;
@@ -660,7 +703,7 @@ void bmmac_stopped(const char *why)
 		while (key < 0) {
 			bmmac_idle();
 			host_video_present(TRUE);
-			if (request_coldstart || request_autostart) {
+			if (request_coldstart || request_disk) {
 				handle_requests();
 				osd_close();
 				return;

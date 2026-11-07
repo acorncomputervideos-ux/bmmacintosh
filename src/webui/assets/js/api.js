@@ -40,6 +40,31 @@ export const shutdown = () => post("/api/shutdown", { headers: WEB_HEADER });
 export const hardReset = () => post("/api/reset");
 export const disableWebUi = () => post("/api/webui/disable");
 
+// ---- the Mac's disks (webui_disks.cpp) ----
+
+export const getDisks = () => getJson("/api/disks");
+
+// op: "start", "insert", "add" (a path in /disks) or "remove" (an index).
+// The Mac does it between frames: getDisks()'s "done" goes up when it has.
+export async function diskRequest(op, { path, index } = {}) {
+  let q = "op=" + op;
+  if (path != null) q += "&path=" + encodeURIComponent(path);
+  if (index != null) q += "&index=" + index;
+  const r = await fetch("/api/disks?" + q, { method: "POST", headers: WEB_HEADER });
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new ApiError(r.status, body.message || "");
+  return body;
+}
+
+// ---- the Mac II's shared clipboard ----
+
+export const getClipboard = () => getJson("/api/clipboard");
+export const setClipboard = (text) =>
+  post("/api/clipboard", {
+    headers: { ...WEB_HEADER, "Content-Type": "text/plain; charset=utf-8" },
+    body: text,
+  });
+
 // ---- the settings files (the editor; other files are the network drive's) ----
 
 const downloadUrl = (vol, path) => "/api/fs/download?" + fsQuery(vol, path);

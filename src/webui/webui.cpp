@@ -8,10 +8,11 @@
 //
 // The SD card is a network drive (WebDAV) at /sd/: see webdav.cpp.
 //
-// Endpoints: GET static assets, GET /api/status, POST /api/reboot,
+// Endpoints: GET static assets, GET /api/status, GET and POST /api/disks
+// (webui_disks.cpp), GET and POST /api/clipboard (the Mac II's), POST /api/reboot,
 // POST /api/shutdown, POST /api/reset, GET /api/volumes, GET /api/fs/list, GET /api/fs/download,
 // POST /api/fs/upload, POST /api/fs/save, POST /api/fs/delete,
-// POST /api/fs/mkdir, POST /api/fs/rename, POST /api/fs/autostart,
+// POST /api/fs/mkdir, POST /api/fs/rename,
 // POST /api/webui/disable.
 //
 // When a PIN is configured, every request must carry HTTP Basic Auth
@@ -43,6 +44,7 @@
 #include "webui_http.h"
 #include "webui_machine.h"
 #include "webdav.h"
+#include "webui_disks.h"
 
 #include <circle/bcmpropertytags.h>
 #include <circle/logger.h>
@@ -69,6 +71,9 @@ extern "C" int circle_get_network_ip_address(char *address,
 // images so their last writes reach the card), and a cold start.
 extern "C" void bmmac_request_power(int power_off);
 extern "C" void bmmac_request_coldstart(void);
+// The Mac II's shared clipboard (src/port/ii/clip_ii.cpp).
+extern "C" const char *emu_clipboard_text(int *from_mac);
+extern "C" int emu_clipboard_set(const char *utf8, unsigned length);
 
 #define WEBUI_LOG              "webui"
 #define WEBUI_PORT             80
@@ -414,6 +419,61 @@ private:
   CSocket *m_socket;
 };
 
+// GET /api/clipboard: {"available":true,"from":"mac","text":"..."} (the
+// text as UTF-8); "available" is false on the Mac Plus.
+void HandleClipboardGet(CSocket *socket) {
+  int from_mac = 0;
+  const char *text = emu_clipboard_text(&from_mac);
+  webhttp::CChunkedResponse r(socket, 200, "OK", "application/json");
+  r.Begin();
+  r.Printf("{\"available\":%s,\"from\":\"%s\",\"text\":\"",
+           text != 0 ? "true" : "false", from_mac ? "mac" : "page");
+  for (const char *p = text != 0 ? text : ""; *p != '\0' && !r.Failed(); p++) {
+    unsigned char c = (unsigned char) *p;
+    if (c == '"' || c == '\\') {
+      char esc[2] = {'\\', (char) c};
+      r.WriteN(esc, 2);
+    } else if (c == '\n') {
+      r.Write("\\n");
+    } else if (c == '\t') {
+      r.Write("\\t");
+    } else if (c < 0x20) {
+      r.Printf("\\u%04x", c);
+    } else {
+      r.WriteN(p, 1);  // UTF-8 as it is
+    }
+  }
+  r.Write("\"}");
+  r.Finish();
+}
+
+// POST /api/clipboard with the text (UTF-8) as the body: the Mac gets it
+// when a program pastes.
+void HandleClipboardPost(CSocket *socket, const unsigned char *body,
+                         unsigned prefetched, long length) {
+  static char text[64 * 1024];
+  if (emu_clipboard_text(0) == 0) {
+    SendText(socket, 400, "Bad Request", "the Mac Plus has no shared clipboard\n");
+    return;
+  }
+  if (length < 0 || (unsigned long) length > sizeof(text)) {
+    SendText(socket, 413, "Payload Too Large", "up to 64 KB of text\n");
+    return;
+  }
+  unsigned got = prefetched < (unsigned) length ? prefetched : (unsigned) length;
+  memcpy(text, body, got);
+  while (got < (unsigned) length) {
+    int n = socket->Receive(text + got, (unsigned) length - got, 0);
+    if (n <= 0) {
+      return;  // the client has gone
+    }
+    got += (unsigned) n;
+  }
+  emu_clipboard_set(text, got);
+  const char *ok = "{\"ok\":true}";
+  SendResponse(socket, 200, "OK", "application/json", ok, (unsigned) strlen(ok));
+}
+
 boolean HandleConnection(CSocket *socket) {
   socket->SetOptionReceiveTimeout(WEBUI_RECV_TIMEOUT_US);
 
@@ -485,6 +545,48 @@ boolean HandleConnection(CSocket *socket) {
     return FALSE;
   }
 
+  if (is_get && strcmp(target, "/api/clipboard") == 0) {
+    HandleClipboardGet(socket);
+    return FALSE;
+  }
+
+  if (is_post && strcmp(target, "/api/clipboard") == 0) {
+    // Same cross-site protection as /api/fs/save below.
+    if (!HasHeader(request, "x-bmmacintosh-web:")) {
+      SendText(socket, 403, "Forbidden", "missing X-BMMacintosh-Web header\n");
+      return FALSE;
+    }
+    HandleClipboardPost(socket, body, body_prefetched, content_length);
+    return FALSE;
+  }
+
+  if (strcmp(target, "/api/disks") == 0 && (is_get || is_post)) {
+    // One request at a time (this task), so one buffer, off the stack.
+    static char json[48 * 1024];
+    if (is_get) {
+      int length = WebUiDisksJson(json, sizeof(json));
+      if (length < 0) {
+        SendText(socket, 500, "Internal Server Error", "too many disk images\n");
+      } else {
+        SendResponse(socket, 200, "OK", "application/json", json, (unsigned) length);
+      }
+      return FALSE;
+    }
+    // Changes the Mac's disks: the same cross-site protection as
+    // /api/fs/save below.
+    if (!HasHeader(request, "x-bmmacintosh-web:")) {
+      SendText(socket, 403, "Forbidden", "missing X-BMMacintosh-Web header\n");
+      return FALSE;
+    }
+    int status = WebUiDisksRequest(query, json, sizeof(json));
+    SendResponse(socket, status,
+                 status == 202 ? "Accepted"
+                 : status == 404 ? "Not Found"
+                 : status == 409 ? "Conflict" : "Bad Request",
+                 "application/json", json, (unsigned) strlen(json));
+    return FALSE;
+  }
+
   if (is_get && strcmp(target, "/api/volumes") == 0) {
     WebUiFsVolumes(socket);
     return FALSE;
@@ -546,10 +648,6 @@ boolean HandleConnection(CSocket *socket) {
     return FALSE;
   }
 
-  if (is_post && strcmp(target, "/api/fs/autostart") == 0) {
-    WebUiFsAutostart(socket, query);
-    return FALSE;
-  }
 
   if (is_post && strcmp(target, "/api/webui/disable") == 0) {
     const char *ok = "{\"ok\":true}";

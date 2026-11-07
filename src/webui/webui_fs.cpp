@@ -24,7 +24,6 @@
 #if BMC64_WEBUI
 
 #include "webui_http.h"
-#include "webui_machine.h"
 
 #include <circle/net/socket.h>
 #include <circle/sched/scheduler.h>
@@ -38,9 +37,6 @@
 
 // Implemented in src/vice_network.cpp.
 extern "C" const char *circle_get_disk_volume(void);
-// Queues a file for the emulator main loop to autostart (interrupt safe;
-// see third_party/common/ui.c).
-extern "C" void emu_autostart_interrupt(const char *path);
 
 using webhttp::CChunkedResponse;
 
@@ -237,17 +233,6 @@ boolean CiEqual(const char *a, const char *b) {
     if (ca != cb) return FALSE;
   }
   return *a == *b;
-}
-
-// Only the image/program types this machine's Autostart accepts as-is
-// (webui_machine.cpp).
-boolean IsAutostartable(const char *clean) {
-  const char *dot = 0;
-  for (const char *p = clean; *p != '\0'; p++) {
-    if (*p == '/') dot = 0;
-    else if (*p == '.') dot = p + 1;
-  }
-  return dot != 0 && WebUiMachineCanRun(dot);
 }
 
 // The boot configuration files. Upload and delete refuse them (in any
@@ -909,42 +894,6 @@ void WebUiFsRename(CSocket *socket, const char *query) {
 
   const char *ok = "{\"ok\":true}";
   webhttp::SendResponse(socket, 200, "OK", "application/json", ok,
-                        (unsigned) strlen(ok));
-}
-
-// ---- autostart ----
-
-void WebUiFsAutostart(CSocket *socket, const char *query) {
-  char clean[560];
-  if (ResolveTarget(socket, query, clean, sizeof(clean), TRUE) != 0) {
-    return;
-  }
-  if (!IsAutostartable(clean)) {
-    webhttp::SendText(socket, 400, "Bad Request",
-                      "not an autostartable file type\n");
-    return;
-  }
-
-  sd_info info;
-  if (sd_stat_info(clean, &info) != SD_OK || info.is_dir) {
-    webhttp::SendText(socket, 404, "Not Found", "no such file\n");
-    return;
-  }
-
-  // Runs later on the emulator core, through stdio, so it gets the path
-  // with the card's volume ("SD:/disks/x.po").
-  char volume_path[600];
-  if ((unsigned) snprintf(volume_path, sizeof(volume_path), "%s:%s",
-                          circle_get_disk_volume(), clean) >=
-      sizeof(volume_path)) {
-    webhttp::SendText(socket, 400, "Bad Request", "path too long\n");
-    return;
-  }
-  // Failures are only logged there.
-  emu_autostart_interrupt(volume_path);
-
-  const char *ok = "{\"ok\":true}";
-  webhttp::SendResponse(socket, 202, "Accepted", "application/json", ok,
                         (unsigned) strlen(ok));
 }
 

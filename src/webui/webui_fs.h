@@ -73,9 +73,5 @@ void WebUiFsMkdir(CSocket *socket, const char *query);
 // answered if the new name is taken (a change of case only is allowed).
 void WebUiFsRename(CSocket *socket, const char *query);
 
-// POST /api/fs/autostart?vol=SD&path=/disks/x.po  -> queue the file to
-// be started: a disk image, put in the drive that boots it, and the
-// machine restarted. Answers 202 once queued; the outcome isn't reported.
-void WebUiFsAutostart(CSocket *socket, const char *query);
 
 #endif

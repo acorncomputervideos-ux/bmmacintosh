@@ -243,3 +243,47 @@ code {
   .file-what { text-align: left; }
   .addr code { font-size: 15px; }
 }
+
+/* ---- Disks ---- */
+
+.card h3 { margin: 18px 0 6px; font-size: 15px; }
+.note-top { color: var(--muted); font-size: 13.5px; margin: 0 0 6px !important; }
+.note-top:empty { display: none; }
+
+.slots, .images { list-style: none; margin: 0; padding: 0; }
+.slots li, .images li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 0;
+  border-top: 1px solid var(--line);
+}
+.slots li:first-child, .images li:first-child { border-top: none; }
+.slot-label { color: var(--muted); font-size: 14px; width: 120px; flex: none; }
+.slot-value { flex: 1; overflow-wrap: anywhere; }
+.slot-value.empty { color: var(--muted); font-style: italic; }
+.slot-acts, .img-acts { display: flex; gap: 6px; flex: none; }
+.img-text { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.img-name { overflow-wrap: anywhere; }
+.img-meta { color: var(--muted); font-size: 12.5px; }
+.btn-small { font-size: 13px; padding: 4px 10px; border-radius: 7px; }
+
+@media (max-width: 560px) {
+  .slots li, .images li { flex-wrap: wrap; }
+  .slot-label { width: auto; }
+}
+
+/* ---- Clipboard ---- */
+
+.clip-text {
+  width: 100%;
+  resize: vertical;
+  font: 14px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--text);
+  background: var(--code);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.clip-bar { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.clip-from { flex: 1; color: var(--muted); font-size: 13.5px; }
