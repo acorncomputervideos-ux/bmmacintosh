@@ -19,6 +19,8 @@
 // Where the card is in the server's URLs.
 #define WEBDAV_PREFIX "/sd"
 
+#define WEBDAV_AT_ONCE 4
+
 // What the WebDAV code reads and writes the request through.
 class CWebDavConnection {
 public:
@@ -30,13 +32,18 @@ public:
   virtual bool Send(const void *data, unsigned length) = 0;
   // Lets the network and the emulator run during long work.
   virtual void Yield(void) = 0;
+
+  // WebDavHandle()'s: the buffers it uses for this request (several
+  // requests may be answered at once, each in a task of its own).
+  int dav_slot = -1;
 };
 
 // Whether a request is the network drive's: a WebDAV method anywhere
 // (OPTIONS, PROPFIND, PUT, ...), or GET or HEAD under WEBDAV_PREFIX.
 bool WebDavWants(const char *method, const char *target);
 
-// Answers one request and leaves the connection to be closed. request is
+// Answers one request and leaves the connection to be closed. Up to
+// WEBDAV_AT_ONCE requests at once (in tasks that take turns); more get 503. request is
 // the request line and headers (NUL-terminated, up to the blank line at
 // least); body/body_len is what of the body arrived with them.
 void WebDavHandle(CWebDavConnection *connection, const char *method,

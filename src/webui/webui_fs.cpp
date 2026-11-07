@@ -333,7 +333,7 @@ BodyResult ReceiveBodyToFile(CSocket *socket, const char *temppath,
     return BODY_CREATE_FAILED;
   }
   // Shown on the Pi's screen while it lasts (src/port/transfer.h).
-  transfer_begin(temppath, 1, (long long) total);
+  int shown = transfer_begin(temppath, 1, (long long) total);
 
   unsigned long written = 0;
   BodyResult result = BODY_OK;
@@ -370,7 +370,7 @@ BodyResult ReceiveBodyToFile(CSocket *socket, const char *temppath,
     }
     buffered += (unsigned) n;
     written += (unsigned) n;
-    transfer_progress((long long) written);
+    transfer_progress(shown, (long long) written);
     if (buffered == sizeof(s_io_buffer) || written == total) {
       if (sd_write(file, s_io_buffer, buffered) != SD_OK) {
         result = BODY_WRITE_FAILED;
@@ -383,7 +383,7 @@ BodyResult ReceiveBodyToFile(CSocket *socket, const char *temppath,
     }
   }
 
-  transfer_end(result == BODY_OK);
+  transfer_end(shown, result == BODY_OK);
   if (sd_close(file) != SD_OK && result == BODY_OK) {
     result = BODY_WRITE_FAILED;
   }
@@ -580,7 +580,7 @@ void WebUiFsDownload(CSocket *socket, const char *query) {
     return;
   }
 
-  transfer_begin(clean, 0, (long long) size);
+  int shown = transfer_begin(clean, 0, (long long) size);
   unsigned long sent = 0;
   for (;;) {
     unsigned read_bytes = 0;
@@ -594,10 +594,10 @@ void WebUiFsDownload(CSocket *socket, const char *query) {
       break;
     }
     sent += read_bytes;
-    transfer_progress((long long) sent);
+    transfer_progress(shown, (long long) sent);
     CScheduler::Get()->Yield();
   }
-  transfer_end(sent == size);
+  transfer_end(shown, sent == size);
   sd_close(file);
 }
 

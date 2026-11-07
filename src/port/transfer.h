@@ -22,10 +22,13 @@ extern "C" {
 #endif
 
 /* The web UI's side. NAME is the file's path on the card; TOTAL its size,
-   or -1 when it isn't known (a chunked upload). */
-void transfer_begin(const char *name, int upload, long long total);
-void transfer_progress(long long done);
-void transfer_end(int ok);
+   or -1 when it isn't known (a chunked upload). transfer_begin() returns
+   the transfer's number for the other two. Several can run at once (the
+   network drive answers a few requests at a time): the first is the one
+   shown, the others are only counted. */
+int transfer_begin(const char *name, int upload, long long total);
+void transfer_progress(int transfer, long long done);
+void transfer_end(int transfer, int ok);
 
 /* The emulator's side. */
 struct transfer_info {

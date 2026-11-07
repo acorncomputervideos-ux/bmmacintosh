@@ -57,9 +57,7 @@ const unsigned kXmlBodyMax = 8 * 1024;
 const unsigned kCopyDepthMax = 10;
 
 // One request at a time (the web UI's task), so one buffer for file data.
-unsigned char s_io[kIoChunk];
 // And one for an XML request body.
-char s_xml[kXmlBodyMax + 1];
 unsigned s_lock_serial;
 
 // ---- Small string helpers ----
@@ -290,6 +288,7 @@ const char *Reason(int status) {
   case 415: return "Unsupported Media Type";
   case 501: return "Not Implemented";
   case 502: return "Bad Gateway";
+  case 503: return "Service Unavailable";
   case 507: return "Insufficient Storage";
   default: return "Internal Server Error";
   }
@@ -722,6 +721,19 @@ struct PropRequest {
   char unknown_name[16][64];
 };
 
+// What one request works in (several may be answered at once: the
+// macOS Finder asks about folders while it uploads a file).
+struct Scratch {
+  bool used;
+  unsigned char io[kIoChunk];
+  char xml[kXmlBodyMax + 1];
+  PropRequest req;
+};
+Scratch s_scratch[WEBDAV_AT_ONCE];
+
+Scratch &Of(CWebDavConnection *c) { return s_scratch[c->dav_slot]; }
+
+
 // The namespace a prefix stands for in an XML text: the nearest
 // declaration before "at" (good enough for clients' request bodies).
 void ResolveNamespace(const char *xml, const char *at, const char *prefix,
@@ -1034,11 +1046,11 @@ void Propfind(CWebDavConnection *c, const char *path, const char *request,
   char depth[16] = "1";
   GetHeader(request, "Depth", depth, sizeof(depth));
   unsigned got = 0;
-  if (!body->ReadAll(s_xml, sizeof(s_xml), &got)) {
+  if (!body->ReadAll(Of(c).xml, sizeof(Of(c).xml), &got)) {
     SendStatus(c, 413);
     return;
   }
-  if (got > 0 && !WellFormed(s_xml)) {
+  if (got > 0 && !WellFormed(Of(c).xml)) {
     SendStatus(c, 400);
     return;
   }
@@ -1047,8 +1059,8 @@ void Propfind(CWebDavConnection *c, const char *path, const char *request,
     SendStatus(c, 404);
     return;
   }
-  static PropRequest req;
-  ParsePropfind(s_xml, &req);
+  PropRequest &req = Of(c).req;
+  ParsePropfind(Of(c).xml, &req);
 
   Response r(c);
   r.Begin(207, "application/xml; charset=utf-8", -1, 0);
@@ -1065,11 +1077,11 @@ void Propfind(CWebDavConnection *c, const char *path, const char *request,
 
 void Proppatch(CWebDavConnection *c, const char *path, Body *body) {
   unsigned got = 0;
-  if (!body->ReadAll(s_xml, sizeof(s_xml), &got)) {
+  if (!body->ReadAll(Of(c).xml, sizeof(Of(c).xml), &got)) {
     SendStatus(c, 413);
     return;
   }
-  if (got > 0 && !WellFormed(s_xml)) {
+  if (got > 0 && !WellFormed(Of(c).xml)) {
     SendStatus(c, 400);
     return;
   }
@@ -1086,11 +1098,11 @@ void Proppatch(CWebDavConnection *c, const char *path, Body *body) {
   r.Href(path, info.is_dir != 0);
   r.Text("</D:href><D:propstat><D:prop>");
   unsigned i = 0;
-  ForEachPropChild(s_xml, [&](const char *lt, const char *prefix,
+  ForEachPropChild(Of(c).xml, [&](const char *lt, const char *prefix,
                               unsigned prefix_len, const char *name) {
     if (i >= 64) return;
     char ns[96];
-    ResolveNamespace(s_xml, lt, prefix, prefix_len, ns, sizeof(ns));
+    ResolveNamespace(Of(c).xml, lt, prefix, prefix_len, ns, sizeof(ns));
     WriteForeignProp(&r, i, ns, name);
     i++;
   });
@@ -1191,18 +1203,18 @@ void Get(CWebDavConnection *c, const char *path, bool head) {
   r.Begin(200, ContentType(path), (long) info.size, extra);
   if (!head && !r.Failed()) {
     // Shown on the Pi's screen while it lasts (src/port/transfer.h).
-    transfer_begin(path, 0, (long long) info.size);
+    int shown = transfer_begin(path, 0, (long long) info.size);
     unsigned long left = info.size;
     while (left > 0) {
       unsigned got = 0;
       unsigned want = left < kIoChunk ? (unsigned) left : kIoChunk;
-      if (sd_read(f, s_io, want, &got) != SD_OK || got == 0) break;
-      if (!c->Send(s_io, got)) break;
+      if (sd_read(f, Of(c).io, want, &got) != SD_OK || got == 0) break;
+      if (!c->Send(Of(c).io, got)) break;
       left -= got;
-      transfer_progress((long long) (info.size - left));
+      transfer_progress(shown, (long long) (info.size - left));
       c->Yield();
     }
-    transfer_end(left == 0);
+    transfer_end(shown, left == 0);
   }
   sd_close(f);
 }
@@ -1248,10 +1260,12 @@ void Put(CWebDavConnection *c, const char *path, Body *body) {
   // A temporary file next to it, unless that name would be too long.
   char temp[kPathMax];
   const char *base = BaseName(path);
-  bool use_temp = strlen(base) + 6 <= SD_MAX_NAME_LEN;
+  // (Each request's own: macOS sends a file again while the first try may
+  // still be going.)
+  bool use_temp = strlen(base) + 7 <= SD_MAX_NAME_LEN;
   if (use_temp) {
-    int n = snprintf(temp, sizeof(temp), "%s/.~dav-%s", IsRoot(parent) ? "" : parent,
-                     base);
+    int n = snprintf(temp, sizeof(temp), "%s/.~dav%d-%s", IsRoot(parent) ? "" : parent,
+                     c->dav_slot, base);
     use_temp = n > 0 && (unsigned) n < sizeof(temp);
   }
   const char *target = use_temp ? temp : path;
@@ -1265,21 +1279,21 @@ void Put(CWebDavConnection *c, const char *path, Body *body) {
   }
   // Gathered a buffer at a time (see webui_fs.cpp's uploads). Shown on
   // the Pi's screen while it lasts (src/port/transfer.h).
-  transfer_begin(path, 1, body->Length());
+  int shown = transfer_begin(path, 1, body->Length());
   long long received = 0;
   unsigned buffered = 0;
   int status = 0;
   for (;;) {
-    int n = body->Read(s_io + buffered, kIoChunk - buffered);
+    int n = body->Read(Of(c).io + buffered, kIoChunk - buffered);
     if (n < 0) {
       status = 400;
       break;
     }
     buffered += (unsigned) n;
     received += n;
-    transfer_progress(received);
+    transfer_progress(shown, received);
     if (buffered == kIoChunk || (n == 0 && buffered > 0)) {
-      if (sd_write(f, s_io, buffered) != SD_OK) {
+      if (sd_write(f, Of(c).io, buffered) != SD_OK) {
         status = 507;
         break;
       }
@@ -1293,7 +1307,7 @@ void Put(CWebDavConnection *c, const char *path, Body *body) {
     if (n == 0) break;
   }
   if (sd_close(f) != SD_OK && status == 0) status = 507;
-  transfer_end(status == 0);
+  transfer_end(shown, status == 0);
   if (status != 0) {
     sd_unlink(target);
     if (status == 400) return;  // the client has gone
@@ -1386,12 +1400,12 @@ int CopyFile(CWebDavConnection *c, const char *from, const char *to) {
   int rc = SD_OK;
   for (;;) {
     unsigned got = 0;
-    if (sd_read(in, s_io, kIoChunk, &got) != SD_OK) {
+    if (sd_read(in, Of(c).io, kIoChunk, &got) != SD_OK) {
       rc = SD_ERROR;
       break;
     }
     if (got == 0) break;
-    if (sd_write(out, s_io, got) != SD_OK) {
+    if (sd_write(out, Of(c).io, got) != SD_OK) {
       rc = SD_ERROR;
       break;
     }
@@ -1613,11 +1627,11 @@ bool Contains(const char *xml, const char *local) {
 void Lock(CWebDavConnection *c, const char *path, const char *request,
           Body *body) {
   unsigned got = 0;
-  if (!body->ReadAll(s_xml, sizeof(s_xml), &got)) {
+  if (!body->ReadAll(Of(c).xml, sizeof(Of(c).xml), &got)) {
     SendStatus(c, 413);
     return;
   }
-  if (got > 0 && !WellFormed(s_xml)) {
+  if (got > 0 && !WellFormed(Of(c).xml)) {
     SendStatus(c, 400);
     return;
   }
@@ -1672,8 +1686,8 @@ void Lock(CWebDavConnection *c, const char *path, const char *request,
   }
 
   char owner[256];
-  ElementText(s_xml, "owner", owner, sizeof(owner));
-  bool shared = Contains(s_xml, "shared");
+  ElementText(Of(c).xml, "owner", owner, sizeof(owner));
+  bool shared = Contains(Of(c).xml, "shared");
   char depth[16] = "infinity";
   GetHeader(request, "Depth", depth, sizeof(depth));
   char timeout[64] = "Second-3600";
@@ -1719,9 +1733,36 @@ bool WebDavWants(const char *method, const char *target) {
   return false;
 }
 
+static void HandleOne(CWebDavConnection *c, const char *method, const char *target,
+                      const char *request, const unsigned char *body_data,
+                      unsigned body_len);
+
 void WebDavHandle(CWebDavConnection *c, const char *method, const char *target,
                   const char *request, const unsigned char *body_data,
                   unsigned body_len) {
+  int slot = -1;
+  for (int i = 0; i < WEBDAV_AT_ONCE; i++) {
+    if (!s_scratch[i].used) {
+      slot = i;
+      break;
+    }
+  }
+  if (slot < 0) {
+    Body body(c, request, body_data, body_len);
+    body.Discard();
+    SendStatus(c, 503);
+    return;
+  }
+  s_scratch[slot].used = true;
+  c->dav_slot = slot;
+  HandleOne(c, method, target, request, body_data, body_len);
+  s_scratch[slot].used = false;
+  c->dav_slot = -1;
+}
+
+static void HandleOne(CWebDavConnection *c, const char *method, const char *target,
+                      const char *request, const unsigned char *body_data,
+                      unsigned body_len) {
   Body body(c, request, body_data, body_len);
 
   if (strcmp(method, "OPTIONS") == 0) {

@@ -518,12 +518,13 @@ static void run_script(void)
 			char what[16], name[256] = "";
 			long long v = 0;
 			sscanf(line + n, "%15s %lld %255[^\n]", what, &v, name);
+			static int shown;
 			if (strcmp(what, "begin") == 0 || strcmp(what, "up") == 0)
-				transfer_begin(name, strcmp(what, "up") == 0, v);
+				shown = transfer_begin(name, strcmp(what, "up") == 0, v);
 			else if (strcmp(what, "progress") == 0)
-				transfer_progress(v);
+				transfer_progress(shown, v);
 			else
-				transfer_end(1);
+				transfer_end(shown, 1);
 		} else if (strcmp(cmd, "disk") == 0) {
 			char op[16], path[512] = "";
 			int index = 0;

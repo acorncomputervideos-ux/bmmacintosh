@@ -54,6 +54,7 @@
 #include <circle/net/netsubsystem.h>
 #include <circle/net/socket.h>
 #include <circle/sched/scheduler.h>
+#include <circle/sched/synchronizationevent.h>
 #include <circle/sched/task.h>
 #include <circle/timer.h>
 #include <circle/types.h>
@@ -80,9 +81,10 @@ extern "C" int emu_clipboard_set(const char *utf8, unsigned length);
 #define WEBUI_PORT             80
 #define WEBUI_ALT_PORT         8080
 #define WEBUI_TASK_STACK       0x10000
+#define WEBUI_WORKERS          WEBDAV_AT_ONCE
 #define WEBUI_RECV_TIMEOUT_US  8000000
 #define WEBUI_REQUEST_MAX      4096
-#define WEBUI_LISTEN_BACKLOG   8
+#define WEBUI_LISTEN_BACKLOG   16
 #define WEBUI_PIN_MAX          16
 #define WEBUI_AUTH_FAIL_MS     500  // slow brute-forcing a wrong PIN
 
@@ -289,7 +291,10 @@ void HandleStatus(CSocket *socket) {
 boolean s_started = FALSE;
 // Answering a request (WebUiBusy()): set and read on core 1, where the
 // web UI's task and the emulator both run.
-volatile boolean s_busy = FALSE;
+volatile int s_busy = 0;   // requests being answered
+// The web page's own requests (not the network drive's) take turns: they
+// share static buffers. See UiTurn.
+boolean s_ui_turn_taken = FALSE;
 boolean g_webui_stop = FALSE;
 
 // HTTP Basic Auth PIN; empty means the server is open.
@@ -478,6 +483,18 @@ void HandleClipboardPost(CSocket *socket, const unsigned char *body,
   SendResponse(socket, 200, "OK", "application/json", ok, (unsigned) strlen(ok));
 }
 
+// The web page's requests' turn: waits while another has it.
+class UiTurn {
+public:
+  UiTurn(void) {
+    while (s_ui_turn_taken) {
+      CScheduler::Get()->Yield();
+    }
+    s_ui_turn_taken = TRUE;
+  }
+  ~UiTurn(void) { s_ui_turn_taken = FALSE; }
+};
+
 boolean HandleConnection(CSocket *socket) {
   socket->SetOptionReceiveTimeout(WEBUI_RECV_TIMEOUT_US);
 
@@ -543,6 +560,9 @@ boolean HandleConnection(CSocket *socket) {
     WebDavHandle(&connection, method, target, request, body, body_prefetched);
     return FALSE;
   }
+
+  // The rest one at a time (until this returns).
+  UiTurn turn;
 
   if (is_get && strcmp(target, "/api/status") == 0) {
     HandleStatus(socket);
@@ -715,6 +735,40 @@ boolean HandleConnection(CSocket *socket) {
   return FALSE;
 }
 
+// Answers connections the server task hands it, one after another. A few
+// of them answer at once: the macOS Finder asks about folders, over
+// connections of their own, while it uploads a file, and waiting for the
+// upload made it hang, give up, and leave the file empty.
+class CWebUiWorker : public CTask {
+public:
+  CWebUiWorker(void) : CTask(WEBUI_TASK_STACK), m_socket(0) { SetName("webui-worker"); }
+
+  // Takes CONNECTION (and deletes it when done); false if busy.
+  bool Take(CSocket *connection) {
+    if (m_socket != 0) return false;
+    m_socket = connection;
+    s_busy++;
+    m_event.Set();
+    return true;
+  }
+
+  void Run(void) override {
+    for (;;) {
+      m_event.Wait();
+      m_event.Clear();
+      if (m_socket == 0) continue;
+      HandleConnection(m_socket);
+      delete m_socket;
+      m_socket = 0;
+      s_busy--;
+    }
+  }
+
+private:
+  CSocket *volatile m_socket;
+  CSynchronizationEvent m_event;
+};
+
 class CWebUiTask : public CTask {
 public:
   explicit CWebUiTask(CNetSubSystem *network)
@@ -747,6 +801,9 @@ public:
 
     CLogger::Get()->Write(WEBUI_LOG, LogNotice,
                           "Web UI listening on port %u", (unsigned) port);
+    for (unsigned i = 0; i < WEBUI_WORKERS; i++) {
+      m_workers[i] = new CWebUiWorker;
+    }
 
     for (;;) {
       CIPAddress client_ip;
@@ -756,10 +813,15 @@ public:
         CScheduler::Get()->MsSleep(50);
         continue;
       }
-      s_busy = TRUE;
-      HandleConnection(connection);
-      delete connection;
-      s_busy = FALSE;
+      // To a free worker, waiting for one if all are busy.
+      for (;;) {
+        bool taken = false;
+        for (unsigned i = 0; i < WEBUI_WORKERS && !taken; i++) {
+          taken = m_workers[i]->Take(connection);
+        }
+        if (taken) break;
+        CScheduler::Get()->MsSleep(5);
+      }
       if (g_webui_stop) {
         break;
       }
@@ -773,6 +835,7 @@ public:
 
 private:
   CNetSubSystem *m_network;
+  CWebUiWorker *m_workers[WEBUI_WORKERS];
 };
 
 }  // namespace
@@ -790,7 +853,7 @@ void WebUiStart(CNetSubSystem *network, const char *pin) {
   new CWebUiTask(network);  // registers itself with the scheduler
 }
 
-bool WebUiBusy(void) { return s_busy; }
+bool WebUiBusy(void) { return s_busy > 0; }
 
 #else  // no Circle networking on this machine build
 

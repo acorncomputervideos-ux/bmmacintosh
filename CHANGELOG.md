@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- The network drive answers several requests at once (up to four). It
+  answered one at a time, so while a file uploaded, the macOS Finder's
+  other requests (and the web page) waited: the Finder hung, gave up,
+  and could leave the file on the card empty (0 bytes). Each request has
+  buffers and a temporary file of its own now; the web page's requests
+  still take turns
 - The log says when Wi-Fi loses its access point, when it joins it again
   (and after how long), and when the Pi's address changes
 - **Delete** on the web page's disk images: an image the Mac isn't using

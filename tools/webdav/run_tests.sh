@@ -56,7 +56,7 @@ check "PUT chunked (as macOS sends)" '[ "$(status -T - -H "Transfer-Encoding: ch
 check "PUT after 100 Continue (as Windows and curl send)" \
     '[ "$(status -T "$W/big.bin" -H "Expect: 100-continue" "$URL/shared/cont.bin")" = 201 ] && cmp -s "$W/big.bin" "$CARD/shared/cont.bin"'
 check "PUT of nothing makes an empty file" '[ "$(status -T /dev/null "$URL/shared/empty")" = 201 ] && [ -f "$CARD/shared/empty" ] && [ ! -s "$CARD/shared/empty" ]'
-check "no temporary file left" '! ls -a "$CARD/shared" | grep -q "^\.~dav-"'
+check "no temporary file left" '! ls -a "$CARD/shared" | grep -q "^\.~dav"'
 check "HEAD has the length" 'curl -s -I "$URL/shared/big.bin" | grep -qi "^Content-Length: 5000000"'
 
 # A transfer that breaks off leaves the file as it was.
@@ -68,7 +68,7 @@ s.sendall(b"PUT /sd/shared/keep.txt HTTP/1.1\r\nHost: x\r\nContent-Length: 10000
 s.close()
 PY
 sleep 0.5
-check "a broken-off PUT leaves the file as it was" '[ "$(cat "$CARD/shared/keep.txt")" = "old contents" ] && ! ls -a "$CARD/shared" | grep -q "^\.~dav-"'
+check "a broken-off PUT leaves the file as it was" '[ "$(cat "$CARD/shared/keep.txt")" = "old contents" ] && ! ls -a "$CARD/shared" | grep -q "^\.~dav"'
 
 # ---- Names ----
 check "UTF-8 names are CP850 on the card" '[ "$(status -T /dev/null "$URL/shared/caf%C3%A9.txt")" = 201 ] && [ -f "$CARD/shared/caf"$'"'"'\x82'"'"'".txt" ]'
