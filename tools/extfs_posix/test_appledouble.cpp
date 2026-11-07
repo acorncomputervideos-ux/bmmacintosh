@@ -16,6 +16,7 @@
 
 #include "../../src/port/ii/extfs_ii.cpp"
 
+#include <string>
 #include <vector>
 
 static int failures;
@@ -167,6 +168,52 @@ int main(int argc, char **argv)
 	CHECK(!exists(ad_to), "._ file wasn't removed");
 	write_file(to, std::vector<uint8>(5, 'n'));
 	CHECK(get_rfork_size(to) == 0, "a new file got the deleted one's resource fork");
+
+	// ---- The type and creator the Mac sees (get_finfo()) ----
+	static uint8 mac[4096];          // a little of the Mac's memory
+	MEMBaseDiff = (uintptr) mac;
+	mac_memory_size = sizeof mac;
+	auto type_of = [&](const char *p) {
+		memset(mac, 0, sizeof mac);
+		get_finfo(p, 0x100, 0x200, false);
+		return std::string((const char *) mac + 0x100 + fdType, 8);
+	};
+	char a[1024], b[1024];
+
+	// macOS's ._ file with no type or creator (a download's quarantine):
+	// the extension's, and no .finf made from it.
+	snprintf(a, sizeof a, "%s/Game.sit", dir);
+	snprintf(b, sizeof b, "%s/._Game.sit", dir);
+	write_file(a, std::vector<uint8>(100, 's'));
+	write_file(b, appledouble("\0\0\0\0", "\0\0\0\0", std::vector<uint8>()));
+	CHECK(type_of(a) == "SIT!SITx", "a ._ file with no type: the .sit extension's SIT! SITx (got %s)",
+	      type_of(a).c_str());
+	snprintf(b, sizeof b, "%s/.finf/Game.sit", dir);
+	CHECK(!exists(b), "no empty .finf made from it");
+
+	// An empty .finf already there (an earlier BMMacintosh's): the extension's.
+	snprintf(a, sizeof a, "%s/Old.sit", dir);
+	snprintf(b, sizeof b, "%s/.finf/Old.sit", dir);
+	write_file(a, std::vector<uint8>(100, 's'));
+	write_file(b, std::vector<uint8>(32, 0));
+	CHECK(type_of(a) == "SIT!SITx", "an empty .finf: the extension's (got %s)", type_of(a).c_str());
+
+	// Capitals.
+	snprintf(a, sizeof a, "%s/GAME2.SIT", dir);
+	write_file(a, std::vector<uint8>(100, 's'));
+	CHECK(type_of(a) == "SIT!SITx", "GAME2.SIT: SIT! SITx (got %s)", type_of(a).c_str());
+
+	// A real type in the ._ file still wins.
+	snprintf(a, sizeof a, "%s/Tool.sit", dir);
+	snprintf(b, sizeof b, "%s/._Tool.sit", dir);
+	write_file(a, std::vector<uint8>(100, 's'));
+	write_file(b, appledouble("APPL", "TOOL", std::vector<uint8>(64, 1)));
+	CHECK(type_of(a) == "APPLTOOL", "a ._ file's own type wins (got %s)", type_of(a).c_str());
+
+	// New extensions.
+	snprintf(a, sizeof a, "%s/Archive.cpt", dir);
+	write_file(a, std::vector<uint8>(100, 'c'));
+	CHECK(type_of(a) == "PACTCPCT", ".cpt: Compact Pro's (got %s)", type_of(a).c_str());
 
 	printf("appledouble: %d failed\n", failures);
 	return failures ? 1 : 0;

@@ -42,6 +42,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <utime.h>
+#include <strings.h>
 
 // newlib has struct utimbuf but not utime() (BMMacintosh's posix_extra.c)
 extern "C" int utime(const char *path, const struct utimbuf *times);
@@ -240,9 +241,16 @@ static void import_appledouble(const char *path)
 			if ((off_t)offset + length > size)
 				continue;
 			off_t next = lseek(fd, 0, SEEK_CUR);
-			if (id == 9 && need_finf && length >= SIZEOF_FInfo) {
+			uint8 tc[8];
+			if (id == 9 && need_finf && length >= SIZEOF_FInfo
+			    && lseek(fd, offset, SEEK_SET) == (off_t)offset
+			    && read(fd, tc, 8) == 8
+			    && (be32(tc) != 0 || be32(tc + 4) != 0)) {
 				// FInfo and FXInfo (macOS adds its extended attributes
-				// after them)
+				// after them). Not when the type and creator are empty,
+				// as modern macOS mostly leaves them (its ._ files hold a
+				// download's quarantine and the like): the name's
+				// extension says more then (get_finfo()).
 				uint32 n = length >= SIZEOF_FInfo + SIZEOF_FXInfo ? SIZEOF_FInfo + SIZEOF_FXInfo : SIZEOF_FInfo;
 				copy_to_helper(fd, offset, n, path, ".finf/");
 			} else if (id == 2 && need_rsrc && length > 0)
@@ -291,6 +299,9 @@ static const ext2type e2t_translation[] = {
 	{".pdf", FOURCC('P','D','F',' '), FOURCC('C','A','R','O')},
 	{".ps", FOURCC('T','E','X','T'), FOURCC('t','t','x','t')},
 	{".sit", FOURCC('S','I','T','!'), FOURCC('S','I','T','x')},
+	{".sitx", FOURCC('S','I','T','D'), FOURCC('S','I','T','!')},
+	{".cpt", FOURCC('P','A','C','T'), FOURCC('C','P','C','T')},
+	{".image", FOURCC('d','I','m','g'), FOURCC('d','C','p','y')},
 	{".tar", FOURCC('T','A','R','F'), FOURCC('T','A','R',' ')},
 	{".uu", FOURCC('T','E','X','T'), FOURCC('S','I','T','x')},
 	{".uue", FOURCC('T','E','X','T'), FOURCC('S','I','T','x')},
@@ -364,18 +375,23 @@ void get_finfo(const char *path, uint32 finfo, uint32 fxinfo, bool is_dir)
 		if (fxinfo)
 			actual += read(fd, Mac2HostAddr(fxinfo), SIZEOF_FXInfo);
 		close(fd);
-		if (actual >= SIZEOF_FInfo)
+		// A file's Finder info without a type or creator (from a ._ file
+		// of modern macOS's, before import_appledouble() passed those by)
+		// takes them from its name's extension, as one without.
+		if (actual >= SIZEOF_FInfo && (is_dir || ReadMacInt32(finfo + fdType) != 0
+		                               || ReadMacInt32(finfo + fdCreator) != 0))
 			return;
 	}
 
-	// No Finder info file, translate file name extension to MacOS type/creator
+	// No Finder info file (or no type or creator in it), translate file name
+	// extension to MacOS type/creator, in any case (GAME.SIT, game.sit)
 	if (!is_dir) {
 		int path_len = strlen(path);
 		for (int i=0; e2t_translation[i].ext; i++) {
 			int ext_len = strlen(e2t_translation[i].ext);
 			if (path_len < ext_len)
 				continue;
-			if (!strcmp(path + path_len - ext_len, e2t_translation[i].ext)) {
+			if (!strcasecmp(path + path_len - ext_len, e2t_translation[i].ext)) {
 				WriteMacInt32(finfo + fdType, e2t_translation[i].type);
 				WriteMacInt32(finfo + fdCreator, e2t_translation[i].creator);
 				break;

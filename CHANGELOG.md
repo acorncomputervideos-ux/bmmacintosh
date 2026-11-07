@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- StuffIt archives (and other files) copied to the SD Card disk open in
+  StuffIt Expander again. Modern macOS's `._` files mostly have no type or
+  creator in them (only a download's quarantine and the like), and taking
+  those made such files typeless where their extension (`.sit`: SIT!)
+  would have said what they are: Expander didn't know them. Empty ones are
+  passed by now, and a file whose Finder info has neither is given its
+  extension's, which mends files already copied. Extensions are matched in
+  any case (`GAME.SIT`), and `.sitx`, `.cpt` (Compact Pro) and `.image`
+  (Disk Copy 6) are known. The uploads themselves were checked byte for
+  byte (80 of them, chunked and not, split at awkward places)
 - Uploads to the network drive (and the web page) gave the processor away
   after every packet read (1.4 KB): with data waiting, that let the Mac run
   between each, and held uploads to tens of KB a second. They hand over
