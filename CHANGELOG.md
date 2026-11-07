@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Faster transfers over Wi-Fi (the network drive and the web page). Circle's
+  Wi-Fi driver is tasks of its own, which hand over at every lock, wait
+  and packet, and while the web UI answered a request they got one turn at
+  a time between the parts of a frame, plus the frame's idle time: a
+  packet took several turns. They get a time slice of up to 1.5 ms there
+  now (four a frame on the Mac II, every 5 ms step on the Mac Plus): about
+  half of each frame goes to the network while a transfer runs, and the
+  Mac runs slower meanwhile. Not measured on a Pi
 - The web page's Disks offers Start from only for disks a Mac can start
   from (with boot blocks: a System on them), and the server refuses the
   rest with a message. An empty floppy was offered, and the Mac, as a real

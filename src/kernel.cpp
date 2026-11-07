@@ -1165,10 +1165,21 @@ void host_sleep_us(unsigned us) {
 
 void host_yield(void) { CScheduler::Get()->Yield(); }
 
+// While the web UI answers a request (an upload or download, the network
+// drive's included), Circle's tasks get a time slice, not one turn: the
+// Wi-Fi driver (Plan 9's, addon/wlan) is tasks itself, which hand over at
+// every lock, wait and packet, so a packet took several turns and Wi-Fi
+// transfers crawled. The Mac's budget a frame shrinks meanwhile (it keeps
+// to 80% of a frame, main_ii.cpp), and grows back after.
+static const unsigned TaskSliceUs = 1500;
+
 void host_poll_tasks(void) {
   if (WebUiBusy()) {
     Core1Beat("running Circle tasks");
-    CScheduler::Get()->Yield();
+    u64 end = CTimer::GetClockTicks64() + TaskSliceUs;
+    do {
+      CScheduler::Get()->Yield();
+    } while (WebUiBusy() && CTimer::GetClockTicks64() < end);
     Core1Beat("emulating");
   }
 }
