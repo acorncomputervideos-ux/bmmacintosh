@@ -84,6 +84,7 @@ extern "C" int emu_clipboard_set(const char *utf8, unsigned length);
 #define WEBUI_WORKERS          WEBDAV_AT_ONCE
 #define WEBUI_RECV_TIMEOUT_US  8000000
 #define WEBUI_SEND_TIMEOUT_US  30000000
+#define WEBUI_DAV_RECV_TIMEOUT_US 60000000
 #define WEBUI_REQUEST_MAX      4096
 #define WEBUI_LISTEN_BACKLOG   16
 #define WEBUI_PIN_MAX          16
@@ -416,7 +417,12 @@ void Send401(CSocket *socket) {
 // The network drive's requests (webdav.cpp) through the connection's socket.
 class CSocketDavConnection : public CWebDavConnection {
 public:
-  explicit CSocketDavConnection(CSocket *socket) : m_socket(socket) {}
+  // An upload's body may pause a while (macOS's Finder streams it as it
+  // copies, between its other requests): a minute, not the 8 s a request's
+  // headers get.
+  explicit CSocketDavConnection(CSocket *socket) : m_socket(socket) {
+    m_socket->SetOptionReceiveTimeout(WEBUI_DAV_RECV_TIMEOUT_US);
+  }
   int Receive(void *buffer, unsigned length) override {
     return m_socket->Receive(buffer, length, 0);
   }

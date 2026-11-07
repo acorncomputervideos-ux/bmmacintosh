@@ -1787,7 +1787,7 @@ void WebDavHandle(CWebDavConnection *c, const char *method, const char *target,
       if (s.status != 0) {
         n += snprintf(line + n, sizeof(line) - n, "%d", s.status);
       } else {
-        n += snprintf(line + n, sizeof(line) - n, "broken off (the client went, or sent nothing for 8 s)");
+        n += snprintf(line + n, sizeof(line) - n, "broken off (the client went, or sent nothing for a minute)");
       }
     }
     if (s.received >= 0 && n > 0 && (unsigned) n < sizeof(line)) {
