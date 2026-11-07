@@ -228,6 +228,37 @@ int main(int argc, char **argv)
 	got = read_file(b);
 	CHECK(got.size() == 32 && memcmp(&got[0], "SITDSIT!", 8) == 0, "... kept in the .finf");
 
+	// What the Mac writes in a new folder (StuffIt Expander unpacking on
+	// the SD Card disk): kept, though the folder has no .finf or .rsrc
+	// yet. (On the Pi, open() says ENOTDIR for those, not ENOENT.)
+	snprintf(path, sizeof path, "%s/Unpacked", dir);
+	mkdir(path, 0777);
+	snprintf(a, sizeof a, "%s/Unpacked/Marathon", dir);
+	write_file(a, std::vector<uint8>(10, 'm'));
+	memset(mac, 0, sizeof mac);
+	memcpy(mac + 0x100 + fdType, "APPL26.\xb0", 8);
+	set_finfo(a, 0x100, 0, false);
+	CHECK(type_of(a) == std::string("APPL26.\xb0", 8), "a new folder: the type the Mac set is kept (got %s)",
+	      type_of(a).c_str());
+	int rf = open_rfork(a, O_RDWR);
+	CHECK(rf >= 0, "a new folder: the resource fork can be made");
+	if (rf >= 0) {
+		CHECK(write(rf, "resources", 9) == 9, "resource fork write");
+		close_rfork(a, rf);
+	}
+	CHECK(get_rfork_size(a) == 9, "a new folder: the resource fork is kept (%u bytes)", get_rfork_size(a));
+
+	// And a ._ file there (macOS's copy) is read.
+	snprintf(path, sizeof path, "%s/Copied", dir);
+	mkdir(path, 0777);
+	snprintf(a, sizeof a, "%s/Copied/Game", dir);
+	snprintf(b, sizeof b, "%s/Copied/._Game", dir);
+	write_file(a, std::vector<uint8>(10, 'g'));
+	write_file(b, appledouble("APPL", "GAME", std::vector<uint8>(77, 3)));
+	CHECK(get_rfork_size(a) == 77, "a ._ file in a folder without .rsrc: its resource fork (%u)",
+	      get_rfork_size(a));
+	CHECK(type_of(a) == "APPLGAME", "... and its type (got %s)", type_of(a).c_str());
+
 	printf("appledouble: %d failed\n", failures);
 	return failures ? 1 : 0;
 }

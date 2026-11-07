@@ -150,7 +150,7 @@ static int open_helper(const char *path, const char *add, int flag)
 		flag |= O_CREAT;
 	int fd = open(helper_path, flag, 0666);
 	if (fd < 0) {
-		if (errno == ENOENT && (flag & O_CREAT)) {
+		if ((errno == ENOENT || errno == ENOTDIR) && (flag & O_CREAT)) {
 			// One path component was missing, probably the helper
 			// directory. Try to create it and re-open the file.
 			int ret = create_helper_dir(path, add);
@@ -305,7 +305,7 @@ static int open_rsrc(const char *path, int flag)
 	// when there is no .rsrc (and before one is made for writing)
 	if ((flag & O_ACCMODE) == O_RDONLY) {
 		int fd = open_helper(path, ".rsrc/", flag);
-		if (fd >= 0 || errno != ENOENT)
+		if (fd >= 0 || (errno != ENOENT && errno != ENOTDIR))
 			return fd;
 	}
 	import_appledouble(path);

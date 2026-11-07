@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **The SD Card disk keeps files' types, creators, icons and resource
+  forks on the Pi.** circle-newlib's open() says ENOTDIR when a folder on
+  the way isn't there (FatFs's FR_NO_PATH), where POSIX says ENOENT, and
+  ExtFS made a file's `.finf` and `.rsrc` folders only on ENOENT: on the
+  Pi, nothing the Mac wrote there was kept (StuffIt Expander's unpacked
+  applications came out as plain documents, the Finder's icons were
+  generic), and macOS's `._` files were never read. extfs_posix now says
+  ENOENT, as POSIX does, and the tests' open() answers as the Pi's does.
+  Files unpacked or copied before keep no type: unpack or copy them again
 - **Copy files to the Pi** on the web page: drop files or folders anywhere
   on it (or choose them), and they go to the card, one at a time with
   their progress: disk images to `disks`, the rest to `shared`. Folders

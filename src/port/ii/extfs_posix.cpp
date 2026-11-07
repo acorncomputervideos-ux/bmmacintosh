@@ -19,6 +19,7 @@
  */
 
 #include <errno.h>
+#include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -85,6 +86,29 @@ off_t position(int fd, FdState *s)
 
 } // namespace
 
+#ifdef EXTFS_POSIX_TEST_CIRCLE_ERRNO
+// The tests' stand-in for circle-newlib's open(), which says ENOTDIR (for
+// FatFs's FR_NO_PATH) where POSIX says ENOENT: a folder on the way isn't
+// there.
+static int circle_open(const char *path, int flags, mode_t mode)
+{
+	int fd = open(path, flags, mode);
+	if (fd < 0 && errno == ENOENT) {
+		char parent[1024];
+		snprintf(parent, sizeof parent, "%s", path);
+		char *slash = strrchr(parent, '/');
+		struct stat st;
+		if (slash != 0 && slash != parent) {
+			*slash = 0;
+			if (stat(parent, &st) != 0)
+				errno = ENOTDIR;
+		}
+	}
+	return fd;
+}
+#define open circle_open
+#endif
+
 extern "C" int extfs_posix_open(const char *path, int flags, ...)
 {
 	mode_t mode = 0;
@@ -95,6 +119,14 @@ extern "C" int extfs_posix_open(const char *path, int flags, ...)
 		va_end(ap);
 	}
 	int fd = open(path, flags, mode);
+	// circle-newlib says ENOTDIR when a folder on the way isn't there
+	// (FatFs's FR_NO_PATH); POSIX, and so ExtFS, says ENOENT. ExtFS makes
+	// a file's .finf and .rsrc folders only on ENOENT (extfs_ii.cpp's
+	// open_helper()), and its errno2oserr() turns only ENOENT into
+	// "file not found": with ENOTDIR no type, creator or resource fork the
+	// Mac wrote was ever kept, nor a ._ file's ever read.
+	if (fd < 0 && errno == ENOTDIR)
+		errno = ENOENT;
 	if (fd < 0 || fd >= kMaxFds)
 		return fd;
 

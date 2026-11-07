@@ -28,7 +28,8 @@ make -s -C "$ROOT/tools/hostsim" build/gen/cputbl.h >/dev/null
 B2=$ROOT/third_party/macemu/BasiliskII/src
 rm -rf "$OUT/ad"
 mkdir -p "$OUT/ad"
-${CXX:-c++} -std=gnu++14 -O1 -g -w -DUPDATE_UAE -DFPU_UAE \
+# open() as circle-newlib's on the Pi: ENOTDIR for a missing folder.
+${CXX:-c++} -std=gnu++14 -O1 -g -w -DUPDATE_UAE -DFPU_UAE -DEXTFS_POSIX_TEST_CIRCLE_ERRNO \
     -I "$ROOT/src/port/ii" -I "$B2/uae_cpu_2021" -I "$B2/include" \
     -I "$ROOT/tools/hostsim/build/gen" -o "$OUT/test_appledouble" \
     "$HERE/test_appledouble.cpp" "$ROOT/src/port/ii/extfs_posix.cpp"
