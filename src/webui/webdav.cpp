@@ -1313,6 +1313,27 @@ void Put(CWebDavConnection *c, const char *path, Body *body) {
       return;
     }
   }
+  // The Mac II's .finf and .rsrc for the file (or, for a ._ file of
+  // macOS's, for the file it belongs to) are out of date now: gone, so the
+  // SD Card disk takes them afresh from the file and its ._ file
+  // (src/port/ii/extfs_ii.cpp). The Finder may have written them when the
+  // file appeared, before its ._ file had come.
+  {
+    char owner[kPathMax];
+    const char *b = BaseName(path);
+    if (b[0] == '.' && b[1] == '_' && b[2] != '\0') {
+      char parent[kPathMax];
+      ParentOf(path, parent, sizeof(parent));
+      if (snprintf(owner, sizeof(owner), "%s/%s", IsRoot(parent) ? "" : parent, b + 2) >=
+          (int)sizeof(owner))
+        owner[0] = '\0';
+    } else {
+      snprintf(owner, sizeof(owner), "%s", path);
+    }
+    char helper[kPathMax];
+    if (owner[0] && HelperPath(owner, ".finf", helper, sizeof(helper))) sd_unlink(helper);
+    if (owner[0] && HelperPath(owner, ".rsrc", helper, sizeof(helper))) sd_unlink(helper);
+  }
   SendStatus(c, existed ? 204 : 201);
 }
 

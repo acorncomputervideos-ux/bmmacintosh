@@ -262,6 +262,38 @@ static void import_appledouble(const char *path)
 	close(fd);
 }
 
+/* The type and creator (and the rest of the FInfo and FXInfo) in a
+   file's ._ file, if it has a type or creator: false if not, or no ._
+   file. */
+static bool appledouble_finfo(const char *path, uint8 *out, unsigned size)
+{
+	char ad_path[MAX_PATH_LENGTH];
+	make_helper_path(path, ad_path, "._");
+	int fd = open(ad_path, O_RDONLY);
+	if (fd < 0)
+		return false;
+	bool found = false;
+	uint8 header[26];
+	if (read(fd, header, sizeof(header)) == (ssize_t)sizeof(header)
+	    && be32(header) == 0x00051607) {
+		int entries = header[24] << 8 | header[25];
+		for (int i = 0; i < entries && i < 32 && !found; i++) {
+			uint8 e[12];
+			if (read(fd, e, sizeof(e)) != (ssize_t)sizeof(e))
+				break;
+			if (be32(e) != 9 || be32(e + 8) < 8)
+				continue;
+			unsigned n = be32(e + 8) < size ? be32(e + 8) : size;
+			memset(out, 0, size);
+			found = lseek(fd, be32(e + 4), SEEK_SET) == (off_t)be32(e + 4)
+			     && read(fd, out, n) == (ssize_t)n
+			     && (be32(out) != 0 || be32(out + 4) != 0);
+		}
+	}
+	close(fd);
+	return found;
+}
+
 static int open_finf(const char *path, int flag)
 {
 	return open_helper(path, ".finf/", flag);
@@ -375,12 +407,27 @@ void get_finfo(const char *path, uint32 finfo, uint32 fxinfo, bool is_dir)
 		if (fxinfo)
 			actual += read(fd, Mac2HostAddr(fxinfo), SIZEOF_FXInfo);
 		close(fd);
-		// A file's Finder info without a type or creator (from a ._ file
-		// of modern macOS's, before import_appledouble() passed those by)
-		// takes them from its name's extension, as one without.
+		// A file's Finder info without a type or creator: from a ._ file
+		// of modern macOS's (before import_appledouble() passed those by),
+		// or the Finder's, written when the file appeared, before its ._
+		// file had come over the network. The ._ file's if it has them
+		// (kept from now on), its name's extension's otherwise.
 		if (actual >= SIZEOF_FInfo && (is_dir || ReadMacInt32(finfo + fdType) != 0
 		                               || ReadMacInt32(finfo + fdCreator) != 0))
 			return;
+		uint8 ad[SIZEOF_FInfo + SIZEOF_FXInfo];
+		if (!is_dir && appledouble_finfo(path, ad, sizeof(ad))) {
+			// Its type and creator, the Finder's flags and place kept.
+			Host2Mac_memcpy(finfo + fdType, ad + fdType, 8);
+			int wfd = open_finf(path, O_RDWR);
+			if (wfd >= 0) {
+				write(wfd, Mac2HostAddr(finfo), SIZEOF_FInfo);
+				if (fxinfo)
+					write(wfd, Mac2HostAddr(fxinfo), SIZEOF_FXInfo);
+				close(wfd);
+			}
+			return;
+		}
 	}
 
 	// No Finder info file (or no type or creator in it), translate file name

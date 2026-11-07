@@ -95,7 +95,8 @@ the two floppy drives while the Mac runs, *Insert a CD-ROM* an `.iso` or
 `.toast` image in the CD-ROM drive; the Mac ejects them (Command-E, or
 dragging them to the Trash), or *Eject a Floppy or CD-ROM* asks Mac OS to
 (as the web page's Eject does: when Mac OS is next idle, and not while a
-file on the disk is open). A hard disk is taken off under *Hard Disks*
+file on the disk is open; a floppy Mac OS has no volume on, such as a
+blank one it couldn't initialize, comes out at once). A hard disk is taken off under *Hard Disks*
 (*Remove*), from the Mac's next start. *Shared Folder* makes the card's `shared`
 folder a disk on the Mac's desktop, *SD Card*: files copied into it (from
 a PC, or over the network drive) are the Mac's, and the other way round. The Mac's
@@ -293,7 +294,8 @@ Things to know:
   `disks` folder (and the folders in it). On the Mac II, **Insert** puts
   a floppy or CD-ROM image in a drive while the Mac runs, **Eject** asks
   Mac OS to put one away (as dragging it to the Trash does: when Mac OS is
-  next idle, and not while a file on it is open), **Add** makes a hard
+  next idle, and not while a file on it is open; a blank floppy Mac OS
+  couldn't initialize comes out at once), **Add** makes a hard
   disk image one of its hard disks
   and **Remove** takes one off (from the Mac's next start), and **Start
   from** restarts the Mac from any image. On the Mac Plus, **Start from**

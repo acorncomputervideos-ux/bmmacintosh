@@ -19,6 +19,7 @@
 #include "prefs.h"
 #include "adb.h"
 #include "macos_util.h"
+#include "extfs_defs.h"
 #include "cpu_emulation.h"
 #include "cdrom.h"
 #include "sony.h"
@@ -32,6 +33,7 @@
 bool ii_insert_disk(const char *path, bool cdrom);
 const char *ii_floppy_name(int n);
 int ii_drive_count(bool cdrom);
+bool ii_eject_floppy_image(int n);
 
 /* ---- Keyboard and mouse -------------------------------------------------------- */
 
@@ -348,6 +350,8 @@ int emu_menu_choose(int id)
 
 /* An eject the web page asked for, waiting for Mac OS to be idle (see
    "Ejecting" below). */
+static uint32 drive_element(int slot);
+static bool volume_on(int drive);
 static int eject_slot = -1;          /* 0, 1: a floppy drive; 2: the CD */
 static double eject_asked;
 static char eject_name[64];
@@ -421,6 +425,25 @@ void emu_disk_request(int op, const char *path, int index, char *message, unsign
 			snprintf(message, size, "The Mac isn't running: start it first.");
 			return;
 		}
+		/* A floppy Mac OS has no volume on (blank, or its initializing
+		   failed) has nothing for it to put away: out at once, as the
+		   floppy driver's own eject does (sony.cpp: the image closed, the
+		   drive's disk-in-place flag cleared), without waiting for Mac OS
+		   to be idle and without running any of its code. */
+		uint32 q = index < 2 ? drive_element(index) : 0;
+		if (q != 0 && !volume_on((int16) ReadMacInt16(q + 6))) {
+			uint32 status = q - dsQLink;
+			const char *name = bmmac_base_name(in);
+			char ejected[64];
+			snprintf(ejected, sizeof ejected, "%s", name);
+			if (ii_eject_floppy_image(index)) {
+				WriteMacInt8(status + dsDiskInPlace, 0);
+				snprintf(message, size, "%s is ejected (Mac OS had no volume on it).", ejected);
+			} else {
+				snprintf(message, size, "There is no disk in that drive.");
+			}
+			return;
+		}
 		eject_slot = index;
 		eject_asked = host_time();
 		snprintf(eject_name, sizeof eject_name, "%s", bmmac_base_name(in));
@@ -455,10 +478,10 @@ void emu_disk_request(int op, const char *path, int index, char *message, unsign
    page is told to eject it on the Mac. */
 
 
-/* The Mac's drive number for a slot: the drive queue's floppy drives
+/* The drive queue element (DrvQHdr's) for a slot: the floppy drives
    (Sony's) are in the order sys_ii.cpp opened them, as ii_floppy_name()
    counts them; the CD-ROM drive is CDROMRefNum's. 0 if none. */
-static int drive_number(int slot)
+static uint32 drive_element(int slot)
 {
 	int16 refnum = slot == 2 ? CDROMRefNum : SonyRefNum;
 	int k = 0;
@@ -466,9 +489,25 @@ static int drive_number(int slot)
 		if ((int16) ReadMacInt16(q + 8) != refnum)
 			continue;
 		if (slot == 2 || k++ == slot)
-			return (int16) ReadMacInt16(q + 6);
+			return q;
 	}
 	return 0;
+}
+
+/* The Mac's drive number for a slot, 0 if none. */
+static int drive_number(int slot)
+{
+	uint32 q = drive_element(slot);
+	return q != 0 ? (int16) ReadMacInt16(q + 6) : 0;
+}
+
+/* Whether Mac OS has a volume mounted on a drive (VCBQHdr's queue). */
+static bool volume_on(int drive)
+{
+	for (uint32 v = ReadMacInt32(0x356 + 2); v != 0; v = ReadMacInt32(v))
+		if ((int16) ReadMacInt16(v + vcbDrvNum) == drive)
+			return true;
+	return false;
 }
 
 void ii_idle(void)

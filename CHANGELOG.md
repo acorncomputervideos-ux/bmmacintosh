@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- A floppy Mac OS has no volume on (a blank one it failed to initialize)
+  can be ejected: Eject (the web page's or the menu's) asked Mac OS to put
+  its volume away, and with none there it never came out. Such a floppy is
+  taken out of the drive straight away now
+- Files copied from a Mac with the Finder keep their type and creator on
+  the SD Card disk. The Mac II's Finder could see the file arrive before
+  macOS's `._` file with its Finder info did, and the empty Finder info it
+  kept then hid the `._` file's. An upload now drops a file's kept Finder
+  info and resource fork (the Mac takes them afresh), and Finder info with
+  no type or creator gives way to the `._` file's, which mends files
+  already copied
 - *Eject a Floppy or CD-ROM* in the Mac II's menu (F12), as the web page's
   Eject does, and an eject's outcome shown on the Pi's screen as well
 - StuffIt archives (and other files) copied to the SD Card disk open in

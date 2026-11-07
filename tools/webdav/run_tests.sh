@@ -128,6 +128,11 @@ check "MOVE: 201" '[ "$(status -X MOVE -H "Destination: $URL/shared/sub/moved" "
 check "... the Finder info and resource fork moved with it" '[ -f "$CARD/shared/sub/.finf/moved" ] && [ -f "$CARD/shared/sub/.rsrc/moved" ] && [ ! -e "$CARD/shared/.finf/empty" ]'
 check "COPY: the helpers copied" '[ "$(status -X COPY -H "Destination: $URL/shared/copied" "$URL/shared/sub/moved")" = 201 ] && [ "$(cat "$CARD/shared/.rsrc/copied")" = resources ] && [ -f "$CARD/shared/sub/.rsrc/moved" ]'
 check "DELETE: the helpers deleted" '[ "$(status -X DELETE "$URL/shared/copied")" = 204 ] && [ ! -e "$CARD/shared/.finf/copied" ] && [ ! -e "$CARD/shared/.rsrc/copied" ]'
+printf '\0\0\0\0\0\0\0\0' > "$CARD/shared/.finf/fresh.sit"
+printf 'old' > "$CARD/shared/.rsrc/fresh.sit"
+check "PUT of a file: its stale Finder info and resource fork go" '[ "$(status -T "$W/big.bin" "$URL/shared/fresh.sit")" = 201 ] && [ ! -e "$CARD/shared/.finf/fresh.sit" ] && [ ! -e "$CARD/shared/.rsrc/fresh.sit" ]'
+printf '\0\0\0\0\0\0\0\0' > "$CARD/shared/.finf/fresh.sit"
+check "PUT of its ._ file: the same" '[ "$(status -T "$W/big.bin" "$URL/shared/._fresh.sit")" = 201 ] && [ ! -e "$CARD/shared/.finf/fresh.sit" ] && [ -f "$CARD/shared/fresh.sit" ]'
 check "MOVE onto a file, Overwrite F: 412" '[ "$(status -X MOVE -H "Destination: $URL/shared/big.bin" -H "Overwrite: F" "$URL/shared/cont.bin")" = 412 ]'
 check "MOVE of a folder into itself: 403" '[ "$(status -X MOVE -H "Destination: $URL/shared/sub/x" "$URL/shared")" = 403 ]'
 check "MOVE elsewhere (another server): 502" '[ "$(status -X MOVE -H "Destination: http://example.com/x" "$URL/shared/cont.bin")" = 502 ]'

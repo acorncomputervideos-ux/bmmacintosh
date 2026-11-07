@@ -215,6 +215,19 @@ int main(int argc, char **argv)
 	write_file(a, std::vector<uint8>(100, 'c'));
 	CHECK(type_of(a) == "PACTCPCT", ".cpt: Compact Pro's (got %s)", type_of(a).c_str());
 
+	// The Mac saw the file before macOS's ._ file came (an empty .finf
+	// made then): the ._ file's type is taken, and kept in the .finf.
+	snprintf(a, sizeof a, "%s/Late.sit", dir);
+	snprintf(b, sizeof b, "%s/.finf/Late.sit", dir);
+	write_file(a, std::vector<uint8>(100, 's'));
+	write_file(b, std::vector<uint8>(32, 0));
+	snprintf(b, sizeof b, "%s/._Late.sit", dir);
+	write_file(b, appledouble("SITD", "SIT!", std::vector<uint8>()));
+	CHECK(type_of(a) == "SITDSIT!", "a late ._ file's type (got %s)", type_of(a).c_str());
+	snprintf(b, sizeof b, "%s/.finf/Late.sit", dir);
+	got = read_file(b);
+	CHECK(got.size() == 32 && memcmp(&got[0], "SITDSIT!", 8) == 0, "... kept in the .finf");
+
 	printf("appledouble: %d failed\n", failures);
 	return failures ? 1 : 0;
 }

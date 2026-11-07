@@ -412,6 +412,26 @@ int ii_drive_count(bool cdrom)
 	return n;
 }
 
+/* Takes the image out of floppy drive N (0 or 1), as the floppy driver's
+   eject does (SysEject(): closed, and gone from macii.prefs). For a disk
+   Mac OS has no volume on: menu_ii.cpp. */
+bool ii_eject_floppy_image(int n)
+{
+	int k = 0;
+	for (int i = 0; i < MAX_FILES; i++) {
+		bm_file *f = &files[i];
+		if (!f->open || !f->removable || f->is_cdrom)
+			continue;
+		if (k++ == n) {
+			if (!has_disk(f))
+				return false;
+			SysEject(f);
+			return true;
+		}
+	}
+	return false;
+}
+
 /* The disk in floppy drive N (0 or 1), or "". */
 const char *ii_floppy_name(int n)
 {
