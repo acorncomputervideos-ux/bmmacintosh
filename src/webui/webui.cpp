@@ -83,6 +83,7 @@ extern "C" int emu_clipboard_set(const char *utf8, unsigned length);
 #define WEBUI_TASK_STACK       0x10000
 #define WEBUI_WORKERS          WEBDAV_AT_ONCE
 #define WEBUI_RECV_TIMEOUT_US  8000000
+#define WEBUI_SEND_TIMEOUT_US  30000000
 #define WEBUI_REQUEST_MAX      4096
 #define WEBUI_LISTEN_BACKLOG   16
 #define WEBUI_PIN_MAX          16
@@ -497,6 +498,11 @@ public:
 
 boolean HandleConnection(CSocket *socket) {
   socket->SetOptionReceiveTimeout(WEBUI_RECV_TIMEOUT_US);
+  // And for sending: a client that stops reading without going away (one
+  // whose Mac went to sleep, or a Finder that gave up) mustn't hold a
+  // worker for ever. Before there were workers, that took the web page
+  // and the network drive away until a reboot.
+  socket->SetOptionSendTimeout(WEBUI_SEND_TIMEOUT_US);
 
   char request[WEBUI_REQUEST_MAX];
   unsigned length = 0;

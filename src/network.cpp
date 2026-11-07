@@ -521,6 +521,8 @@ extern "C" int circle_get_network_status(void) {
   return s_status;
 }
 
+extern "C" void osd_notify(const char *text);
+
 // Once a second (host_network_watch): the Wi-Fi link and the address, as
 // they change, in the log. When the network "drops", the log then says
 // whether the Pi lost the access point (and got it back), or kept it.
@@ -537,15 +539,36 @@ extern "C" void host_network_watch(void) {
   if (up != link) {
     if (link == 1) {
       log->Write(FromNetwork, LogWarning, "Wi-Fi: lost the access point");
+      osd_notify("Wi-Fi lost: joining again...");
     } else if (link == 0) {
       log->Write(FromNetwork, LogNotice, "Wi-Fi: joined the access point again, after %.0f s",
                  now - since);
+      osd_notify("Wi-Fi is back");
     }
     link = up;
     since = now;
   }
   char ip[32] = "";
   circle_get_network_ip_address(ip, sizeof ip);
+
+  // Every 30 s, a datagram to the router (its discard port): some access
+  // points and routers forget a station that has been quiet a while, and
+  // the Pi then can't be reached until it next sends something.
+  static double keepalive_due;
+  if (ip[0] != '\0' && up && now >= keepalive_due) {
+    keepalive_due = now + 30.0;
+    static CSocket *keepalive;
+    if (keepalive == 0) {
+      keepalive = new CSocket(s_net, IPPROTO_UDP);
+    }
+    const CIPAddress *gateway = s_net->GetConfig()->GetDefaultGateway();
+    if (keepalive != 0 && gateway != 0 && !gateway->IsNull() &&
+        keepalive->Connect(*gateway, 9) >= 0) {
+      static const char kAlive[] = "BMMacintosh";
+      keepalive->Send(kAlive, sizeof kAlive - 1, MSG_DONTWAIT);
+    }
+  }
+
   if (strcmp(ip, address) != 0) {
     if (address[0] != '\0' || ip[0] != '\0') {
       log->Write(FromNetwork, LogNotice, "Network address: %s",

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- The network stays reachable: the web server gives up on a client that
+  stops reading after 30 s (one could hold it for ever, and the web page
+  and network drive were gone until a reboot); the Pi sends its router a
+  small datagram every 30 s, as some access points and routers forget a
+  quiet station; and the screen says when Wi-Fi is lost and when it is back
 - The network drive answers several requests at once (up to four). It
   answered one at a time, so while a file uploaded, the macOS Finder's
   other requests (and the web page) waited: the Finder hung, gave up,
