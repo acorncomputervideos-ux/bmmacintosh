@@ -482,7 +482,7 @@ class Body {
 public:
   Body(CWebDavConnection *c, const char *request, const unsigned char *pre,
        unsigned pre_len)
-      : m_c(c), m_pre(pre), m_pre_len(pre_len), m_chunked(false),
+      : m_c(c), m_pre(pre), m_pre_len(pre_len), m_in_pos(0), m_in_len(0), m_chunked(false),
         m_left(0), m_chunk_left(0), m_done(false), m_error(false) {
     char value[64];
     if (GetHeader(request, "Transfer-Encoding", value, sizeof(value)) &&
@@ -584,7 +584,11 @@ private:
     return -1;
   }
 
-  // Some bytes: what came with the headers first, then the socket.
+  // Some bytes: what came with the headers first, then the socket's.
+  // The socket is always read a whole segment at a time, into m_in: on the
+  // Pi, Circle's Receive() loses what doesn't fit the buffer it is given
+  // (it is one TCP segment a call), and reading less (a chunk's size line
+  // a byte at a time, the end of a buffer) lost the rest of the segment.
   int Raw(void *buf, unsigned len) {
     if (m_pre_len > 0) {
       unsigned n = m_pre_len < len ? m_pre_len : len;
@@ -593,7 +597,16 @@ private:
       m_pre_len -= n;
       return (int) n;
     }
-    return m_c->Receive(buf, len);
+    if (m_in_pos == m_in_len) {
+      int got = m_c->Receive(m_in, sizeof(m_in));
+      if (got <= 0) return got;
+      m_in_pos = 0;
+      m_in_len = (unsigned) got;
+    }
+    unsigned n = m_in_len - m_in_pos < len ? m_in_len - m_in_pos : len;
+    memcpy(buf, m_in + m_in_pos, n);
+    m_in_pos += n;
+    return (int) n;
   }
 
   int RawAll(void *buf, unsigned len) {
@@ -624,6 +637,8 @@ private:
   CWebDavConnection *m_c;
   const unsigned char *m_pre;
   unsigned m_pre_len;
+  unsigned char m_in[2048];  // a segment (Circle's FRAME_BUFFER_SIZE is 1600)
+  unsigned m_in_pos, m_in_len;
   bool m_chunked;
   unsigned long m_left;
   unsigned long m_left_start;
@@ -1051,6 +1066,8 @@ struct ListContext {
 
 int ListOne(void *ctx, const sd_info *info) {
   ListContext *l = (ListContext *) ctx;
+  // An upload's temporary file (or one an older version left): not shown.
+  if (strncmp(info->name, ".~dav", 5) == 0) return 0;
   char path[kPathMax];
   int n = snprintf(path, sizeof(path), "%s/%s", IsRoot(l->folder) ? "" : l->folder,
                    info->name);

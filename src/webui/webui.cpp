@@ -424,7 +424,7 @@ public:
     m_socket->SetOptionReceiveTimeout(WEBUI_DAV_RECV_TIMEOUT_US);
   }
   int Receive(void *buffer, unsigned length) override {
-    return m_socket->Receive(buffer, length, 0);
+    return webhttp::Receive(m_socket, buffer, length);
   }
   bool Send(const void *data, unsigned length) override {
     return webhttp::SendAll(m_socket, data, length);
@@ -479,7 +479,7 @@ void HandleClipboardPost(CSocket *socket, const unsigned char *body,
   unsigned got = prefetched < (unsigned) length ? prefetched : (unsigned) length;
   memcpy(text, body, got);
   while (got < (unsigned) length) {
-    int n = socket->Receive(text + got, (unsigned) length - got, 0);
+    int n = webhttp::Receive(socket, text + got, (unsigned) length - got);
     if (n <= 0) {
       return;  // the client has gone
     }
@@ -545,7 +545,7 @@ boolean HandleConnection(CSocket *socket) {
                "request too large\n");
       return FALSE;
     }
-    int n = socket->Receive(request + length, sizeof(request) - 1 - length, 0);
+    int n = webhttp::Receive(socket, request + length, sizeof(request) - 1 - length);
     if (n <= 0) {
       return FALSE;  // client closed, timed out, or error
     }
@@ -802,6 +802,7 @@ public:
       m_event.Clear();
       if (m_socket == 0) continue;
       HandleConnection(m_socket);
+      webhttp::ReceiveDone(m_socket);
       delete m_socket;
       m_socket = 0;
       s_busy--;

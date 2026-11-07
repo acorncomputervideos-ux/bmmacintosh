@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **Uploads to the Pi lost data.** Circle's `Receive()` brings one TCP
+  segment a call and drops what doesn't fit the buffer it is given, and
+  the network drive (and the web page's uploads, its clipboard and the
+  requests' headers) sometimes gave it less: a chunked upload's size line
+  was read a byte at a time, so macOS's Finder uploads (all chunked)
+  failed at once and left an empty file, and other uploads lost the rest
+  of a segment whenever a 32 KB buffer was nearly full, so files arrived
+  damaged. All reads now take a whole segment and keep what is left over.
+  tools/webdav's server now receives as Circle does, so the tests catch it
+- An upload's temporary file is not listed on the network drive
 - Each network drive request is logged with its outcome (status, and a
   PUT's bytes received, or that it broke off), and the last 60 are at
   `http://<the Pi>/api/davlog`

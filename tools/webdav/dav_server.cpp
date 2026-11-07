@@ -36,8 +36,15 @@ extern "C" double host_time(void) {
 class SocketConnection : public CWebDavConnection {
 public:
 	explicit SocketConnection(int fd) : m_fd(fd) {}
+	// As Circle's CSocket::Receive() on the Pi: one TCP segment (up to
+	// 1460 bytes) a call, and what doesn't fit the buffer given is lost.
 	int Receive(void *buffer, unsigned length) override {
-		return (int) recv(m_fd, buffer, length, 0);
+		char segment[1460];
+		ssize_t n = recv(m_fd, segment, sizeof segment, 0);
+		if (n <= 0) return (int) n;
+		if ((unsigned) n > length) n = length;
+		memcpy(buffer, segment, (size_t) n);
+		return (int) n;
 	}
 	bool Send(const void *data, unsigned length) override {
 		const char *p = (const char *) data;

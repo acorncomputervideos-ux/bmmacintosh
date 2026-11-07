@@ -30,6 +30,13 @@ namespace webhttp {
 // Send every byte, yielding between sends. FALSE on socket error.
 boolean SendAll(CSocket *socket, const void *data, unsigned length);
 
+// CSocket::Receive() for a stream: up to LENGTH bytes, however small, with
+// nothing lost. Circle's gives one TCP segment a call and drops what
+// doesn't fit the buffer; the rest is kept here for the next call.
+// ReceiveDone() when the connection is finished with.
+int Receive(CSocket *socket, void *buffer, unsigned length);
+void ReceiveDone(CSocket *socket);
+
 // One-shot response with an in-memory body and a Content-Length header.
 void SendResponse(CSocket *socket, int status, const char *reason,
                   const char *content_type, const void *body,

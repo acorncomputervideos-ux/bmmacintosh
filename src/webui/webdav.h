@@ -26,7 +26,8 @@ class CWebDavConnection {
 public:
   virtual ~CWebDavConnection(void) {}
   // Like CSocket::Receive(): bytes read, 0 or less when the client has gone
-  // or timed out.
+  // or timed out. Given at least 1600 bytes (Circle's FRAME_BUFFER_SIZE):
+  // as Circle's, it may lose what doesn't fit.
   virtual int Receive(void *buffer, unsigned length) = 0;
   // Sends all of it; false on an error.
   virtual bool Send(const void *data, unsigned length) = 0;

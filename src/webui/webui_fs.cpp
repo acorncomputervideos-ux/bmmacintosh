@@ -359,7 +359,7 @@ BodyResult ReceiveBodyToFile(CSocket *socket, const char *temppath,
     unsigned long remain = total - written;
     unsigned space = sizeof(s_io_buffer) - buffered;
     unsigned want = remain < space ? (unsigned) remain : space;
-    int n = socket->Receive(s_io_buffer + buffered, want, 0);
+    int n = webhttp::Receive(socket, s_io_buffer + buffered, want);
     if (n <= 0) {
       result = BODY_TRUNCATED;
       break;

@@ -27,6 +27,56 @@
 
 namespace webhttp {
 
+namespace {
+
+// What a segment brought beyond what was asked for, per connection (one
+// per web UI worker, and a few spare).
+struct Leftover {
+  CSocket *socket;
+  u8 data[2048];
+  unsigned pos, len;
+};
+Leftover s_leftover[8];
+
+Leftover *LeftoverFor(CSocket *socket, bool make) {
+  Leftover *free_one = 0;
+  for (Leftover &l : s_leftover) {
+    if (l.socket == socket) return &l;
+    if (l.socket == 0 && free_one == 0) free_one = &l;
+  }
+  if (make && free_one != 0) {
+    free_one->socket = socket;
+    free_one->pos = free_one->len = 0;
+  }
+  return make ? free_one : 0;
+}
+
+}  // namespace
+
+int Receive(CSocket *socket, void *buffer, unsigned length) {
+  if (length == 0) return 0;
+  Leftover *l = LeftoverFor(socket, true);
+  if (l == 0) {
+    // (Not expected: more connections than slots.) Straight through.
+    return socket->Receive(buffer, length, 0);
+  }
+  if (l->pos == l->len) {
+    int got = socket->Receive(l->data, sizeof(l->data), 0);
+    if (got <= 0) return got;
+    l->pos = 0;
+    l->len = (unsigned) got;
+  }
+  unsigned n = l->len - l->pos < length ? l->len - l->pos : length;
+  memcpy(buffer, l->data + l->pos, n);
+  l->pos += n;
+  return (int) n;
+}
+
+void ReceiveDone(CSocket *socket) {
+  Leftover *l = LeftoverFor(socket, false);
+  if (l != 0) l->socket = 0;
+}
+
 boolean SendAll(CSocket *socket, const void *data, unsigned length) {
   const u8 *bytes = (const u8 *) data;
   unsigned sent = 0;
