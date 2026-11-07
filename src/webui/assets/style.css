@@ -1,171 +1,276 @@
-/* BMMacintosh's web page: the SD card as a network drive, the Mac's and
-   the Pi's controls, the settings files. Light or dark as the computer is. */
+/* BMMacintosh's web page, dressed as a desktop of the early 90s: a grey
+   patterned desktop, a menu bar, black-outlined windows with striped title
+   bars and close boxes, round-cornered buttons, and dialogs with a double
+   border. Black, white and greys only. No Apple logo, and none of Apple's
+   fonts are shipped: Chicago, Charcoal and Geneva are used where the
+   computer has them, a plain sans-serif otherwise. */
 
 :root {
-  --bg: #f3f1ec;
-  --card: #ffffff;
-  --text: #1d1d1f;
-  --muted: #6b6b70;
-  --line: #e2dfd8;
-  --accent: #2f5fd0;
-  --accent-text: #ffffff;
-  --code: #f0eee8;
-  --ok: #1f8a4c;
-  --warn: #b26b00;
-  --bad: #c62f2f;
-  --radius: 12px;
-  color-scheme: light dark;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #161617;
-    --card: #222224;
-    --text: #ececee;
-    --muted: #9a9aa1;
-    --line: #34343a;
-    --accent: #6d93ff;
-    --accent-text: #0d0d10;
-    --code: #2c2c30;
-    --ok: #4cc27f;
-    --warn: #f0a83c;
-    --bad: #ff6b6b;
-  }
+  --ink: #000;
+  --paper: #fff;
+  --grey: #888;
+  --light: #ddd;
+  --ok: #000;
+  --warn: #000;
+  --bad: #000;
+  --title: "Chicago", "ChicagoFLF", "Charcoal", "Geneva", "Helvetica Neue", Arial, sans-serif;
+  --text: "Geneva", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --mono: "Monaco", "Menlo", "Consolas", "Courier New", monospace;
+  color-scheme: light;
 }
 
 * { box-sizing: border-box; }
 
+/* The desktop: a fine grey pattern (one black dot in four). */
+html { background: #a8a8a8; }
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Ubuntu,
-        "Helvetica Neue", Arial, sans-serif;
+  min-height: 100vh;
+  color: var(--ink);
+  font: 13px/1.45 var(--text);
+  background-color: #b4b4b4;
+  background-image:
+    linear-gradient(45deg, rgba(0, 0, 0, .18) 25%, transparent 25%, transparent 75%, rgba(0, 0, 0, .18) 75%),
+    linear-gradient(45deg, rgba(0, 0, 0, .18) 25%, transparent 25%, transparent 75%, rgba(0, 0, 0, .18) 75%);
+  background-size: 4px 4px;
+  background-position: 0 0, 2px 2px;
+  padding-top: 22px;
 }
 
-/* ---- Header ---- */
+b, h1, h2, h3, .btn, .tab, .menus, .menu-right { font-family: var(--title); }
 
-.top {
-  max-width: 760px;
-  margin: 0 auto;
-  padding: 28px 20px 8px;
+/* ---- The menu bar ---- */
+
+.menubar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  height: 22px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
+  background: var(--paper);
+  border-bottom: 1px solid var(--ink);
+  padding: 0 10px;
+  font-size: 13px;
+  white-space: nowrap;
 }
+.menus { display: flex; align-items: center; height: 100%; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.menus::-webkit-scrollbar { display: none; }
+.menus a, .menu-app {
+  color: var(--ink);
+  text-decoration: none;
+  padding: 0 9px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+.menus a[hidden] { display: none; }
+.menus a:hover, .menus a:focus-visible { background: var(--ink); color: var(--paper); outline: none; }
+.menu-icon { width: 15px; height: 15px; margin-right: 4px; flex: none; }
+.menu-icon rect { fill: var(--paper); stroke: var(--ink); stroke-width: 1; }
+.menu-icon .scr { fill: var(--ink); stroke: none; }
+.menu-icon .slot { fill: var(--ink); stroke: none; }
+.menu-right { display: flex; align-items: center; gap: 14px; font-size: 12px; flex: none; }
+.machine { font-family: var(--text); }
+.conn { display: flex; align-items: center; gap: 6px; }
+/* The online light: a filled diamond when online, hollow when not. */
+.dot {
+  width: 8px;
+  height: 8px;
+  transform: rotate(45deg);
+  border: 1px solid var(--ink);
+  background: var(--paper);
+}
+.dot.ok { background: var(--ink); }
+.dot.bad { background: repeating-linear-gradient(90deg, var(--ink) 0 1px, var(--paper) 1px 2px); }
 
-.brand { display: flex; align-items: center; gap: 12px; }
-.brand h1 { margin: 0; font-size: 22px; letter-spacing: -0.01em; }
-.brand .sub { margin: 0; color: var(--muted); font-size: 14px; }
-.brand-mac { width: 38px; height: 38px; flex: none; }
-.brand-mac rect { fill: #ddd8cc; stroke: #666; stroke-width: 0.6; }
-.brand-mac .scr { fill: #2b2d3a; stroke: none; }
-.brand-mac .slot { fill: #666; stroke: none; }
+/* ---- Windows ---- */
 
-.conn { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; white-space: nowrap; }
-.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
-.dot.ok { background: var(--ok); }
-.dot.bad { background: var(--bad); }
-
-/* ---- Cards ---- */
-
-main { max-width: 760px; margin: 0 auto; padding: 8px 20px 40px; }
+main { max-width: 760px; margin: 0 auto; padding: 18px 16px 40px; }
 
 .card {
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 20px 22px;
-  margin-top: 16px;
+  background: var(--paper);
+  border: 1px solid var(--ink);
+  box-shadow: 1px 1px 0 var(--ink);
+  margin-top: 18px;
+  padding: 0 16px 14px;
+  scroll-margin-top: 34px;
+}
+.card[hidden] { display: none; }
+
+/* The title bar: horizontal stripes, a close box, the title in a white box. */
+.card > h2 {
+  position: relative;
+  margin: 0 -16px 12px;
+  height: 20px;
+  border-bottom: 1px solid var(--ink);
+  font-size: 13px;
+  font-weight: bold;
+  line-height: 20px;
+  text-align: center;
+  background:
+    repeating-linear-gradient(180deg, var(--paper) 0 3px, var(--ink) 3px 4px) center / calc(100% - 8px) 13px no-repeat,
+    var(--paper);
+  scroll-margin-top: 34px;
+}
+.card > h2 > span {
+  background: var(--paper);
+  padding: 0 8px;
+}
+.card > h2::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 4px;
+  width: 11px;
+  height: 11px;
+  background: var(--paper);
+  border: 1px solid var(--ink);
+  box-shadow: 0 0 0 2px var(--paper);
 }
 
-.card h2 { margin: 0 0 8px; font-size: 17px; }
-.card p { margin: 0 0 12px; }
-.note { color: var(--muted); font-size: 13.5px; margin: 14px 0 0 !important; }
+.card p { margin: 0 0 10px; }
+.card h3 { font-size: 13px; margin: 16px 0 6px; }
+.note { color: #333; font-size: 12px; margin: 12px 0 0 !important; }
+.note-top { color: #333; font-size: 12px; margin: 0 0 6px !important; }
+.note-top:empty { display: none; }
 
 code {
-  font: 13.5px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  background: var(--code);
-  padding: 1px 6px;
-  border-radius: 5px;
+  font: 12px/1.4 var(--mono);
+  border: 1px solid var(--grey);
+  padding: 0 4px;
+  background: var(--paper);
   overflow-wrap: anywhere;
 }
 
-/* The drive's address, large, with its copy button. */
-.addr {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 14px 0 16px;
-}
-.addr code {
-  flex: 1;
-  font-size: 17px;
-  padding: 10px 14px;
-  border-radius: 8px;
-}
-
-.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
-.tab {
-  font: inherit;
-  font-size: 14px;
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--muted);
-  padding: 6px 12px 8px;
-  margin-bottom: -1px;
-  cursor: pointer;
-}
-.tab.on { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
-
-.steps { margin: 12px 0 0; padding-left: 22px; }
-.steps li { margin: 6px 0; }
-
-/* ---- Buttons ---- */
+/* ---- Controls ---- */
 
 .btn {
-  font: inherit;
-  font-size: 14px;
-  color: var(--text);
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--ink);
+  border-radius: 7px;
+  padding: 4px 14px;
+  min-height: 24px;
   cursor: pointer;
 }
-.btn:hover:not(:disabled) { border-color: var(--muted); }
-.btn:disabled { opacity: 0.5; cursor: default; }
-.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
-.btn-danger { color: var(--bad); }
-
-.actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
-.actions .btn { text-align: left; padding: 12px 14px; font-weight: 600; }
-.actions .btn small { display: block; font-weight: 400; color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.btn:active:not(:disabled) { background: var(--ink); color: var(--paper); }
+.btn:disabled { color: var(--grey); border-color: var(--grey); cursor: default; }
+.btn:focus-visible { outline: 1px dotted var(--ink); outline-offset: 2px; }
+/* The default button: a thick ring round it. */
+.btn-primary { box-shadow: 0 0 0 3px var(--paper), 0 0 0 6px var(--ink); margin: 0 4px; }
+.btn-primary:disabled { box-shadow: 0 0 0 3px var(--paper), 0 0 0 6px var(--grey); }
+.btn-danger { font-style: italic; }
+.btn-small { font-size: 12px; padding: 2px 10px; min-height: 20px; border-radius: 6px; }
+.btn-small.btn-primary { box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--ink); }
 
 .link {
-  font: inherit;
-  font-size: 13.5px;
+  font: 12px var(--text);
   background: none;
   border: none;
   padding: 0;
-  margin-top: 14px;
-  color: var(--muted);
+  margin-top: 12px;
+  color: var(--ink);
   text-decoration: underline;
   cursor: pointer;
 }
 
-.msg { margin: 12px 0 0 !important; font-size: 14px; color: var(--muted); }
+input[type="text"], select, textarea {
+  font: 13px var(--text);
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--ink);
+  border-radius: 0;
+}
+input[type="text"] { padding: 3px 5px; }
+/* A pop-up menu: a shadow and a small triangle. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 3px 26px 3px 6px;
+  box-shadow: 1px 1px 0 var(--ink);
+  background:
+    linear-gradient(45deg, transparent 50%, var(--ink) 50%) right 12px top 55% / 5px 5px no-repeat,
+    linear-gradient(135deg, var(--ink) 50%, transparent 50%) right 7px top 55% / 5px 5px no-repeat,
+    var(--paper);
+}
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  margin: 0;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  position: relative;
+}
+input[type="checkbox"]:checked::before,
+input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -1px;
+  width: 1px;
+  height: 13px;
+  background: var(--ink);
+}
+input[type="checkbox"]:checked::before { transform: rotate(45deg); }
+input[type="checkbox"]:checked::after { transform: rotate(-45deg); }
+
+.msg { margin: 10px 0 0 !important; font-size: 12px; }
 .msg:empty { display: none; }
-.msg.err { color: var(--bad); }
+.msg.err { font-weight: bold; }
+.msg.err::before { content: "\26A0  "; }
 
-/* ---- Settings files ---- */
+/* ---- The network drive ---- */
 
-.files { list-style: none; margin: 0; padding: 0; }
-.files li + li { border-top: 1px solid var(--line); }
+.addr { display: flex; align-items: center; gap: 10px; margin: 12px 0 14px; }
+.addr code { flex: 1; font-size: 15px; padding: 7px 10px; border: 1px solid var(--ink); box-shadow: inset 1px 1px 0 var(--grey); }
+
+/* The systems, as a row of radio buttons. */
+.tabs { display: flex; gap: 16px; padding: 4px 0 8px; border-bottom: 1px dotted var(--ink); }
+.tab {
+  font-size: 13px;
+  background: none;
+  border: none;
+  color: var(--ink);
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.tab::before {
+  content: "";
+  width: 11px;
+  height: 11px;
+  border: 1px solid var(--ink);
+  border-radius: 50%;
+  background: var(--paper);
+}
+.tab.on::before { background: radial-gradient(circle, var(--ink) 0 2.5px, var(--paper) 3px); }
+
+.steps { margin: 10px 0 0; padding-left: 22px; }
+.steps li { margin: 5px 0; }
+
+/* ---- The Mac ---- */
+
+.actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.actions .btn { text-align: left; padding: 8px 12px; border-radius: 9px; }
+.actions .btn small { display: block; font: 11px var(--text); margin-top: 2px; }
+.actions .btn:active:not(:disabled) small { color: var(--paper); }
+
+/* ---- Lists (the Finder's list view) ---- */
+
+.files, .slots, .images { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--ink); }
+.files li + li, .slots li + li, .images li + li { border-top: 1px dotted var(--grey); }
 .file {
-  font: inherit;
+  font: 13px var(--text);
   width: 100%;
   display: flex;
   justify-content: space-between;
@@ -173,132 +278,115 @@ code {
   gap: 16px;
   background: none;
   border: none;
-  color: var(--text);
+  color: var(--ink);
   text-align: left;
-  padding: 10px 2px;
+  padding: 5px 2px;
   cursor: pointer;
 }
-.file:hover .file-name { color: var(--accent); }
-.file-name { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; }
-.file-what { color: var(--muted); font-size: 13.5px; text-align: right; }
+.file:hover, .file:focus-visible { background: var(--ink); color: var(--paper); outline: none; }
+.file:hover .file-what, .file:focus-visible .file-what { color: var(--paper); }
+.file-name { font-family: var(--mono); font-size: 12px; }
+.file-what { color: #333; font-size: 12px; text-align: right; }
 
-/* ---- System ---- */
-
-.kv { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 0; font-size: 14px; }
-.kv dt { color: var(--muted); }
-.kv dd { margin: 0; overflow-wrap: anywhere; }
-.v-ok { color: var(--ok); }
-.v-warn { color: var(--warn); }
-.v-bad { color: var(--bad); }
-
-/* ---- The settings editor ---- */
-
-.overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  z-index: 10;
-}
-.overlay[hidden] { display: none; }
-
-.ed-dialog {
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  width: min(860px, 100%);
-  height: min(680px, 100%);
-  display: flex;
-  flex-direction: column;
-  padding: 18px 20px;
-  gap: 10px;
-}
-.ed-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-.ed-head h2 { margin: 0; font-size: 17px; }
-.ed-path { color: var(--muted); font-size: 13px; }
-.ed-close { font-size: 18px; background: none; border: none; color: var(--muted); cursor: pointer; }
-.ed-hint { margin: 0; color: var(--muted); font-size: 13.5px; }
-.ed-text {
-  flex: 1;
-  width: 100%;
-  resize: none;
-  font: 13.5px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  color: var(--text);
-  background: var(--code);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 10px 12px;
-}
-.ed-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
-.ed-msg { margin: 0 !important; }
-.ed-btns { display: flex; gap: 8px; margin-left: auto; }
-
-@media (max-width: 560px) {
-  .top { padding-top: 18px; }
-  .card { padding: 16px; }
-  .file { flex-direction: column; gap: 0; }
-  .file-what { text-align: left; }
-  .addr code { font-size: 15px; }
-}
-
-/* ---- Disks ---- */
-
-.card h3 { margin: 18px 0 6px; font-size: 15px; }
-.note-top { color: var(--muted); font-size: 13.5px; margin: 0 0 6px !important; }
-.note-top:empty { display: none; }
-
-.slots, .images { list-style: none; margin: 0; padding: 0; }
-.slots li, .images li {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 7px 0;
-  border-top: 1px solid var(--line);
-}
-.slots li:first-child, .images li:first-child { border-top: none; }
-.slot-label { color: var(--muted); font-size: 14px; width: 120px; flex: none; }
+.slots li, .images li { display: flex; align-items: center; gap: 12px; padding: 5px 2px; }
+.slot-label { font-family: var(--title); font-size: 12px; width: 120px; flex: none; }
 .slot-value { flex: 1; overflow-wrap: anywhere; }
-.slot-value.empty { color: var(--muted); font-style: italic; }
+.slot-value.empty { color: var(--grey); font-style: italic; }
 .slot-acts, .img-acts { display: flex; gap: 6px; flex: none; }
 .img-text { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .img-name { overflow-wrap: anywhere; }
-.img-meta { color: var(--muted); font-size: 12.5px; }
-.btn-small { font-size: 13px; padding: 4px 10px; border-radius: 7px; }
+.img-meta { color: #333; font-size: 11px; }
 
-@media (max-width: 560px) {
-  .slots li, .images li { flex-wrap: wrap; }
-  .slot-label { width: auto; }
-}
+.new-disk { margin-top: 4px; }
+.new-row { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.new-row label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
+.new-row label.check { flex-direction: row; align-items: center; gap: 6px; padding-bottom: 4px; }
+.new-row input[type="text"] { width: 170px; }
 
 /* ---- Clipboard ---- */
 
 .clip-text {
   width: 100%;
   resize: vertical;
-  font: 14px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  color: var(--text);
-  background: var(--code);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 10px 12px;
+  font: 13px/1.45 var(--mono);
+  padding: 6px 8px;
+  box-shadow: inset 1px 1px 0 var(--grey);
 }
-.clip-bar { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
-.clip-from { flex: 1; color: var(--muted); font-size: 13.5px; }
+.clip-bar { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.clip-from { flex: 1; font-size: 12px; }
 
-.new-disk { margin-top: 6px; }
-.new-row { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
-.new-row label { display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; color: var(--muted); }
-.new-row label.check { flex-direction: row; align-items: center; gap: 6px; color: var(--text); padding-bottom: 6px; }
-.new-row input[type="text"], .new-row select {
-  font: inherit;
-  font-size: 14px;
-  color: var(--text);
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  padding: 5px 8px;
+/* ---- System ---- */
+
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 3px 16px; margin: 0; font-size: 12px; }
+.kv dt { font-family: var(--title); }
+.kv dd { margin: 0; overflow-wrap: anywhere; }
+.v-ok { color: var(--ink); }
+.v-warn { font-weight: bold; }
+.v-bad { font-weight: bold; text-decoration: underline; }
+
+/* ---- The settings editor: a dialog with a double border ---- */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 30px 12px 12px;
+  z-index: 30;
 }
-.new-row input[type="text"] { width: 180px; }
+.overlay[hidden] { display: none; }
+
+.ed-dialog {
+  background: var(--paper);
+  border: 1px solid var(--ink);
+  box-shadow: inset 0 0 0 3px var(--paper), inset 0 0 0 5px var(--ink), 2px 2px 0 var(--ink);
+  width: min(840px, 100%);
+  height: min(640px, 100%);
+  display: flex;
+  flex-direction: column;
+  padding: 16px 18px;
+  gap: 8px;
+}
+.ed-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.ed-head h2 { margin: 0; font-size: 14px; }
+.ed-path { font-size: 11px; }
+.ed-close {
+  font: 12px var(--title);
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  background: var(--paper);
+  border: 1px solid var(--ink);
+  color: var(--ink);
+  cursor: pointer;
+}
+.ed-hint { margin: 0; font-size: 12px; }
+.ed-text {
+  flex: 1;
+  width: 100%;
+  resize: none;
+  font: 12px/1.45 var(--mono);
+  padding: 6px 8px;
+  box-shadow: inset 1px 1px 0 var(--grey);
+}
+.ed-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.ed-msg { margin: 0 !important; }
+.ed-btns { display: flex; gap: 14px; margin-left: auto; align-items: center; }
+
+/* ---- Small screens ---- */
+
+@media (max-width: 600px) {
+  .machine { display: none; }
+  /* Just the light: its words still there for screen readers. */
+  #sys-state { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .menus a, .menu-app { padding: 0 7px; }
+  .card { padding: 0 12px 12px; }
+  .card > h2 { margin: 0 -12px 10px; }
+  .file { flex-direction: column; gap: 0; }
+  .file-what { text-align: left; }
+  .slots li, .images li { flex-wrap: wrap; }
+  .slot-label { width: auto; }
+  .addr code { font-size: 13px; }
+}

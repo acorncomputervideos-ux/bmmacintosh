@@ -20,6 +20,7 @@ async function refresh({ force = false } = {}) {
     return;
   }
   $("clip-card").hidden = !c.available;
+  $("menu-clip").hidden = !c.available;
   if (!c.available) return;
   if (edited && !force) return;
   $("clip-text").value = c.text;

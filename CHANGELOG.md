@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- The web page looks like a desktop of the early 90s: a grey patterned
+  desktop, a menu bar (its menus go to the windows; the Pi's status at the
+  right), black-outlined windows with striped title bars and close boxes,
+  round-cornered buttons, radio buttons, pop-up menus, and the settings
+  editor as a dialog with a double border. No Apple logo, and none of
+  Apple's fonts shipped: Chicago, Charcoal and Geneva where the computer
+  has them, a plain sans-serif otherwise
+
 ## 0.1.5 – 2026-11-07
 
 Built for every board and tested on the PC (the simulator and the tests

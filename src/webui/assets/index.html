@@ -17,20 +17,25 @@
 <link rel="modulepreload" href="/js/clipboard.js">
 </head>
 <body>
-<header class="top">
-  <div class="brand">
-    <svg class="brand-mac" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="1" width="11" height="14" rx="2"/><rect class="scr" x="4.2" y="2.8" width="7.6" height="6" rx=".6"/><rect class="slot" x="5" y="11.4" width="3.5" height=".9"/></svg>
-    <div>
-      <h1>BMMacintosh</h1>
-      <p class="sub" id="i-machine">—</p>
-    </div>
+<header class="menubar">
+  <nav class="menus" aria-label="Windows">
+    <svg class="menu-icon" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="1" width="11" height="14" rx="2"/><rect class="scr" x="4.2" y="2.8" width="7.6" height="6" rx=".6"/><rect class="slot" x="5" y="11.4" width="3.5" height=".9"/></svg>
+    <b class="menu-app">BMMacintosh</b>
+    <a href="#drive-h">Drive</a>
+    <a href="#disks-h">Disks</a>
+    <a href="#clip-h" id="menu-clip" hidden>Clipboard</a>
+    <a href="#set-h">Settings</a>
+    <a href="#sys-h">System</a>
+  </nav>
+  <div class="menu-right">
+    <span class="machine" id="i-machine">—</span>
+    <span class="conn"><span class="dot" id="sys-dot"></span><span id="sys-state">Connecting…</span></span>
   </div>
-  <div class="conn"><span class="dot" id="sys-dot"></span><span id="sys-state">Connecting…</span></div>
 </header>
 
 <main>
   <section class="card drive" aria-labelledby="drive-h">
-    <h2 id="drive-h">The SD card on your computer</h2>
+    <h2 id="drive-h"><span>The SD card on your computer</span></h2>
     <p>The card opens as a network drive in your computer's own file manager:
       copy disk images, ROMs and files to it and from it as with any folder.
       The <b>shared</b> folder is the Mac II's <i>SD Card</i> disk.</p>
@@ -63,7 +68,7 @@
   </section>
 
   <section class="card" aria-labelledby="mac-h">
-    <h2 id="mac-h">The Mac</h2>
+    <h2 id="mac-h"><span>The Mac</span></h2>
     <div class="actions">
       <button class="btn" id="qa-reset" type="button">Restart the Mac<small id="qa-reset-sub">As switching it off and on</small></button>
       <button class="btn" id="qa-reboot" type="button">Reboot the Pi<small>Disk images are saved first</small></button>
@@ -73,7 +78,7 @@
   </section>
 
   <section class="card" aria-labelledby="disks-h">
-    <h2 id="disks-h">Disks</h2>
+    <h2 id="disks-h"><span>Disks</span></h2>
     <div id="disks-now"></div>
     <p class="msg" id="disks-msg" role="status"></p>
     <h3>Disk images on the card</h3>
@@ -103,7 +108,7 @@
   </section>
 
   <section class="card" aria-labelledby="clip-h" id="clip-card" hidden>
-    <h2 id="clip-h">Clipboard</h2>
+    <h2 id="clip-h"><span>Clipboard</span></h2>
     <p>Text copied on the Mac shows here. Text sent from here is what the Mac pastes next.</p>
     <textarea class="clip-text" id="clip-text" rows="5" spellcheck="false" aria-label="The Mac's clipboard"></textarea>
     <div class="clip-bar">
@@ -116,13 +121,13 @@
   </section>
 
   <section class="card" aria-labelledby="set-h">
-    <h2 id="set-h">Settings</h2>
+    <h2 id="set-h"><span>Settings</span></h2>
     <p>The files BMMacintosh starts from. Most changes take effect after a reboot.</p>
     <ul class="files" id="settings"></ul>
   </section>
 
   <section class="card" aria-labelledby="sys-h">
-    <h2 id="sys-h">System</h2>
+    <h2 id="sys-h"><span>System</span></h2>
     <dl class="kv">
       <dt>Address</dt><dd id="i-ip">—</dd>
       <dt>Name</dt><dd id="i-host">—</dd>
