@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.1.5 – 2026-11-07
+
+Built for every board and tested on the PC (the simulator and the tests
+below), but not tried on a Raspberry Pi yet.
 
 - A smooth mouse pointer. A USB mouse reports 125 times a second (most of
   them) and the Mac's frames are 60.15: a frame had two reports' movement,
