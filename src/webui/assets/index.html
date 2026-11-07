@@ -79,6 +79,27 @@
     <h3>Disk images on the card</h3>
     <p class="note-top" id="disks-note"></p>
     <ul class="images" id="disks-images"></ul>
+    <form class="new-disk" id="new-disk" hidden>
+      <h3>New disk image</h3>
+      <div class="new-row">
+        <label>Name <input id="new-name" type="text" maxlength="64" value="Untitled" autocomplete="off" spellcheck="false"></label>
+        <label>Size
+          <select id="new-size">
+            <option value="floppy:819200">Floppy, 800K</option>
+            <option value="floppy:1474560">Floppy, 1.4 MB</option>
+            <option value="hard:20971520">Hard disk, 20 MB</option>
+            <option value="hard:104857600" selected>Hard disk, 100 MB</option>
+            <option value="hard:262144000">Hard disk, 250 MB</option>
+            <option value="hard:524288000">Hard disk, 500 MB</option>
+            <option value="hard:1073741824">Hard disk, 1 GB</option>
+            <option value="hard:2147483648">Hard disk, 2 GB</option>
+          </select>
+        </label>
+        <label class="check"><input id="new-use" type="checkbox" checked> Put it in the Mac</label>
+        <button class="btn btn-small btn-primary" id="new-make" type="submit">Make</button>
+      </div>
+      <p class="note">An empty disk: Mac OS asks to initialize it (a hard disk once the Mac restarts).</p>
+    </form>
   </section>
 
   <section class="card" aria-labelledby="clip-h" id="clip-card" hidden>

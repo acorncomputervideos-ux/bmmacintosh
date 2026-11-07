@@ -4,9 +4,12 @@
 //
 //   GET /api/disks   -> WebUiDisksJson()
 //   POST /api/disks?op=start|insert|add|remove&path=/disks/x.dsk&index=N
+//   POST /api/disks?op=new&name=Work&kind=floppy|hard&size=BYTES
 //                    -> WebUiDisksRequest()
 //
-// The change is made by the emulator between frames (bmmac_disk_interrupt()
+// "new" makes an empty disk image in the disks folder there and then (the
+// Mac II's; Mac OS offers to initialize it). The other changes are made by
+// the emulator between frames (bmmac_disk_interrupt()
 // in src/port/frontend.c); /api/disks says when it is done ("done" counts
 // them) and what happened ("result").
 //

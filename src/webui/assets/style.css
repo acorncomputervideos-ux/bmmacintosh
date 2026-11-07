@@ -287,3 +287,18 @@ code {
 }
 .clip-bar { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
 .clip-from { flex: 1; color: var(--muted); font-size: 13.5px; }
+
+.new-disk { margin-top: 6px; }
+.new-row { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.new-row label { display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; color: var(--muted); }
+.new-row label.check { flex-direction: row; align-items: center; gap: 6px; color: var(--text); padding-bottom: 6px; }
+.new-row input[type="text"], .new-row select {
+  font: inherit;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 5px 8px;
+}
+.new-row input[type="text"] { width: 180px; }

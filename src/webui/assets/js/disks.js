@@ -114,6 +114,34 @@ function renderImages() {
 function render() {
   renderNow();
   renderImages();
+  $("new-disk").hidden = state.machine !== "ii";
+  $("new-make").disabled = busy;
+}
+
+async function makeDisk(ev) {
+  ev.preventDefault();
+  if (busy) return;
+  const name = $("new-name").value.trim();
+  const [kind, size] = $("new-size").value.split(":");
+  busy = true;
+  render();
+  setMsg(kind === "hard" && size > 500 * 1048576
+    ? "Making it (a few seconds for a big one)…" : "Making it…");
+  let made;
+  try {
+    made = await api.newDisk(name, kind, size);
+  } catch (e) {
+    busy = false;
+    setMsg(e.message.replace(/^HTTP \d+ /, ""), true);
+    await refresh();
+    return;
+  }
+  busy = false;
+  setMsg(made.message);
+  await refresh();
+  if ($("new-use").checked) {
+    await change(kind === "floppy" ? "insert" : "add", { path: made.path });
+  }
 }
 
 function start(path) {
@@ -157,5 +185,6 @@ export async function refresh() {
 }
 
 export function initDisks() {
+  $("new-disk").addEventListener("submit", makeDisk);
   refresh();
 }

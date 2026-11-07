@@ -581,6 +581,8 @@ boolean HandleConnection(CSocket *socket) {
     int status = WebUiDisksRequest(query, json, sizeof(json));
     SendResponse(socket, status,
                  status == 202 ? "Accepted"
+                 : status == 201 ? "Created"
+                 : status == 507 ? "Insufficient Storage"
                  : status == 404 ? "Not Found"
                  : status == 409 ? "Conflict" : "Bad Request",
                  "application/json", json, (unsigned) strlen(json));

@@ -75,6 +75,16 @@ check "not on the card: 404" 'post ii post "op=start&path=/disks/gone.dsk" | gre
 check "an unknown change: refused" 'post ii post "op=format&path=/disks/f.dsk" | grep -q "^400"'
 check "the Mac Plus: start only" 'post plus post "op=start&path=/disks/f.dsk" | grep -q "^queued 1 0" && post plus post "op=add&path=/disks/f.dsk" | grep -q "^400"'
 check "another change waiting: 409" 'BUSY=1 post ii post "op=start&path=/disks/f.dsk" | grep -q "^409"'
+# ---- New blank disk images ----
+check "a new 1.4 MB floppy: made, its size, zeros" 'post ii post "op=new&name=Blank&kind=floppy&size=1474560" | grep -q "^201 .*\"path\":\"/disks/Blank.dsk\"" && [ "$(stat -c %s "$CARD/disks/Blank.dsk")" = 1474560 ] && cmp -s "$CARD/disks/Blank.dsk" <(head -c 1474560 /dev/zero)'
+check "a new 100 MB hard disk: made, its size" 'post ii post "op=new&name=Work+Disk&kind=hard&size=104857600" | grep -q "^201 .*/disks/Work Disk.hda" && [ "$(stat -c %s "$CARD/disks/Work Disk.hda")" = 104857600 ]'
+check "... its start and end are zeros" '[ -z "$(head -c 65536 "$CARD/disks/Work Disk.hda" | tr -d "\\0")" ] && [ -z "$(tail -c 512 "$CARD/disks/Work Disk.hda" | tr -d "\\0")" ]'
+check "... and listed as a hard disk" '"$OUT/test_disks" "$CARD" ii json | python3 -c "import json,sys; d=json.load(sys.stdin); assert {\"path\":\"/disks/Work Disk.hda\",\"size\":104857600,\"kind\":\"hard\"} in d[\"images\"]"'
+check "a name already there: 409, the file kept" 'post ii post "op=new&name=Blank&kind=floppy&size=819200" | grep -q "^409" && [ "$(stat -c %s "$CARD/disks/Blank.dsk")" = 1474560 ]'
+check "a floppy that isn't 800K or 1.4 MB: refused" 'post ii post "op=new&name=Odd&kind=floppy&size=1000000" | grep -q "^400" && [ ! -e "$CARD/disks/Odd.dsk" ]'
+check "a hard disk over 2 GB, or not whole blocks: refused" 'post ii post "op=new&name=Huge&kind=hard&size=3000000000" | grep -q "^400" && post ii post "op=new&name=Odd&kind=hard&size=1048577" | grep -q "^400"'
+check "names with / .. : or not ASCII: refused" 'for n in "a%2Fb" ".." "a:b" "caf%C3%A9" "" "x."; do post ii post "op=new&name=$n&kind=floppy&size=819200" | grep -q "^400" || exit 1; done; [ -z "$(ls "$CARD/disks" | grep -v -e "^Games$" -e "\.dsk$" -e "\.hda$" -e "\.iso$" -e "\.image$" -e "\.txt$")" ]'
+check "the Mac Plus: refused" 'post plus post "op=new&name=P&kind=floppy&size=819200" | grep -q "^400" && [ ! -e "$CARD/disks/P.dsk" ]'
 check "the answers are JSON" 'post ii post "op=start&path=/disks/f.dsk" | head -1 | cut -c5- | python3 -c "import json,sys; json.load(sys.stdin)"'
 
 echo

@@ -274,6 +274,51 @@ bool ValidImagePath(const char *path) {
   return IsImage(path);
 }
 
+// A new disk image's name: one name, plain ASCII, nothing FAT can't have
+// or would change (the extension is added).
+bool ValidNewName(const char *name) {
+  size_t n = strlen(name);
+  if (n == 0 || n > 64 || name[0] == ' ' || name[0] == '.' ||
+      name[n - 1] == ' ' || name[n - 1] == '.') {
+    return false;
+  }
+  for (const unsigned char *p = (const unsigned char *) name; *p != 0; p++) {
+    if (*p < 0x20 || *p >= 0x7F || strchr("/\\:*?\"<>|", *p) != 0) return false;
+  }
+  return true;
+}
+
+// Makes an empty disk image of SIZE bytes. Only its first 64 KB and its
+// last block are written (zeros): the rest is grown without writing (FatFs
+// grows a file when it is moved past its end), as writing 2 GB would take
+// minutes. The zeros are where Mac OS looks for a volume, so it sees an
+// empty disk and offers to initialize it, whatever the card held there
+// before. SD_OK, or what went wrong (the file is removed).
+int MakeBlankImage(const char *path, uint32_t size) {
+  static const char zeros[4096] = {0};
+  sd_file *f = sd_open(path, SD_WRITE);
+  if (f == 0) return SD_ERROR;
+  int rc = SD_OK;
+  uint32_t head = size < 65536 ? size : 65536;
+  for (uint32_t done = 0; rc == SD_OK && done < head; done += sizeof(zeros)) {
+    uint32_t n = head - done < sizeof(zeros) ? head - done : sizeof(zeros);
+    rc = sd_write(f, zeros, n);
+  }
+  if (rc == SD_OK && size > head) {
+    uint32_t tail = size - 512 > head ? size - 512 : head;
+    // On a full card FatFs stops short: the size is checked below.
+    rc = sd_seek(f, tail);
+    if (rc == SD_OK) rc = sd_write(f, zeros, size - tail);
+  }
+  if (sd_close(f) != SD_OK && rc == SD_OK) rc = SD_ERROR;
+  if (rc == SD_OK) {
+    sd_info info;
+    if (sd_stat_info(path, &info) != SD_OK || info.size != size) rc = SD_ERROR;
+  }
+  if (rc != SD_OK) sd_unlink(path);
+  return rc;
+}
+
 int Answer(char *out, unsigned size, int status, const char *message) {
   Json json(out, size);
   json.Raw(status < 300 ? "{\"ok\":true,\"message\":" : "{\"ok\":false,\"message\":");
@@ -318,11 +363,67 @@ int WebUiDisksJson(char *out, unsigned size) {
   return json.Full() ? -1 : (int) json.Length();
 }
 
+// POST /api/disks?op=new&name=Work&kind=floppy|hard&size=BYTES: an empty
+// disk image in the disks folder (Work.dsk or Work.hda), made here and now.
+int NewImage(const char *query, char *out, unsigned size) {
+  if (emu_machine() != BMMAC_II) {
+    return Answer(out, size, 400,
+                  "The Mac Plus starts from its one disk: an empty one is no use to it.");
+  }
+  char name[80], kind[16], size_text[16];
+  if (!QueryValue(query, "name", name, sizeof(name)) || !ValidNewName(name)) {
+    return Answer(out, size, 400,
+                  "Give it a name of plain letters and numbers (up to 64), without "
+                  "/ \\ : * ? \" < > |.");
+  }
+  if (!QueryValue(query, "kind", kind, sizeof(kind)) ||
+      (strcmp(kind, "floppy") != 0 && strcmp(kind, "hard") != 0)) {
+    return Answer(out, size, 400, "A floppy or a hard disk? (kind)");
+  }
+  char *end;
+  if (!QueryValue(query, "size", size_text, sizeof(size_text))) {
+    return Answer(out, size, 400, "How big? (size)");
+  }
+  unsigned long bytes = strtoul(size_text, &end, 10);
+  bool floppy = strcmp(kind, "floppy") == 0;
+  if (*end != '\0' ||
+      (floppy && bytes != 819200 && bytes != 1474560) ||
+      (!floppy && (bytes < 1048576 || bytes > 2048UL * 1048576 || bytes % 512 != 0))) {
+    return Answer(out, size, 400, floppy ? "A floppy is 800K or 1.4 MB."
+                                         : "A hard disk is 1 MB to 2 GB.");
+  }
+  uint32_t total_kb = 0, free_kb = 0;
+  if (sd_space_kb(&total_kb, &free_kb) == SD_OK &&
+      (unsigned long long) free_kb * 1024 < (unsigned long long) bytes + 1048576) {
+    return Answer(out, size, 507, "There isn't room on the card for it.");
+  }
+
+  char path[160];
+  snprintf(path, sizeof(path), "%s/%s.%s", kDisksFolder, name, floppy ? "dsk" : "hda");
+  if (sd_stat_info(path, 0) == SD_OK) {
+    return Answer(out, size, 409, "There is a disk image of that name already.");
+  }
+  sd_mkdir(kDisksFolder);
+  if (MakeBlankImage(path, (uint32_t) bytes) != SD_OK) {
+    return Answer(out, size, 507, "It couldn't be made: is the card full?");
+  }
+  Json json(out, size);
+  json.Raw("{\"ok\":true,\"path\":");
+  json.String(path);
+  json.Raw(",\"message\":");
+  char message[160];
+  snprintf(message, sizeof(message), "%s.%s is made.", name, floppy ? "dsk" : "hda");
+  json.String(message);
+  json.Raw("}");
+  return 201;
+}
+
 int WebUiDisksRequest(const char *query, char *out, unsigned size) {
   char op_text[16];
   if (!QueryValue(query, "op", op_text, sizeof(op_text))) {
     return Answer(out, size, 400, "Which change? (op)");
   }
+  if (strcmp(op_text, "new") == 0) return NewImage(query, out, size);
   int op;
   if (strcmp(op_text, "start") == 0) op = BMMAC_DISK_START;
   else if (strcmp(op_text, "insert") == 0) op = BMMAC_DISK_INSERT;

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- New blank disk images from the web page's Disks (the Mac II): an empty
+  800K or 1.4 MB floppy or a 20 MB to 2 GB hard disk in `disks`, put in
+  the Mac if wanted, for Mac OS to initialize. Only its start and end are
+  written; the rest is grown without writing, so a big one takes seconds,
+  not minutes
 - Disks on the web page: the Mac's disks, and the disk images in the
   card's `disks` folder, with what each can do. On the Mac II, insert a
   floppy or CD-ROM image while the Mac runs, add or remove hard disks, or

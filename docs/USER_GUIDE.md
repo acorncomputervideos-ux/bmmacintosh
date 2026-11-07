@@ -271,7 +271,11 @@ Things to know:
   Mac, Command-E), **Add** makes a hard disk image one of its hard disks
   and **Remove** takes one off (from the Mac's next start), and **Start
   from** restarts the Mac from any image. On the Mac Plus, **Start from**
-  changes its one disk and restarts it.
+  changes its one disk and restarts it. **New disk image** (the Mac II)
+  makes an empty floppy (800K or 1.4 MB) or hard disk (20 MB to 2 GB) in
+  `disks`, and puts it in the Mac (a floppy now, a hard disk from its next
+  start); Mac OS then asks to initialize it. Making one takes a moment,
+  up to a few seconds for 2 GB, and the Mac pauses meanwhile.
 - **Clipboard** (the Mac II): text a Mac program copies shows here, to
   copy to your computer; text sent from here is what the Mac pastes next
   (Command-V). Text only, up to 64 KB, in the Mac's character set

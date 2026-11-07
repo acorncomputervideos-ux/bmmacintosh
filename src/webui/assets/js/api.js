@@ -65,6 +65,15 @@ export const setClipboard = (text) =>
     body: text,
   });
 
+// An empty disk image in the disks folder: { path, message }.
+export async function newDisk(name, kind, size) {
+  const q = "op=new&name=" + encodeURIComponent(name) + "&kind=" + kind + "&size=" + size;
+  const r = await fetch("/api/disks?" + q, { method: "POST", headers: WEB_HEADER });
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new ApiError(r.status, body.message || "");
+  return body;
+}
+
 // ---- the settings files (the editor; other files are the network drive's) ----
 
 const downloadUrl = (vol, path) => "/api/fs/download?" + fsQuery(vol, path);
