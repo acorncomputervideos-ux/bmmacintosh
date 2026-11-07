@@ -1067,7 +1067,7 @@ struct ListContext {
 int ListOne(void *ctx, const sd_info *info) {
   ListContext *l = (ListContext *) ctx;
   // An upload's temporary file (or one an older version left): not shown.
-  if (strncmp(info->name, ".~dav", 5) == 0) return 0;
+  if (strncmp(info->name, ".~dav", 5) == 0 || strncmp(info->name, ".~up-", 5) == 0) return 0;
   char path[kPathMax];
   int n = snprintf(path, sizeof(path), "%s/%s", IsRoot(l->folder) ? "" : l->folder,
                    info->name);

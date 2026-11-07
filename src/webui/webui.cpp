@@ -600,6 +600,18 @@ boolean HandleConnection(CSocket *socket) {
     return FALSE;
   }
 
+  // Files dropped on the page: their own buffer, so not waiting for the
+  // page's other requests (nor holding them up for a whole upload).
+  if (is_post && strcmp(target, "/api/drop") == 0) {
+    // Writes to the card: the same cross-site protection as /api/fs/save.
+    if (!HasHeader(request, "x-bmmacintosh-web:")) {
+      SendText(socket, 403, "Forbidden", "missing X-BMMacintosh-Web header\n");
+      return FALSE;
+    }
+    WebUiFsDrop(socket, query, body, body_prefetched, content_length);
+    return FALSE;
+  }
+
   // The rest one at a time (until this returns).
   UiTurn turn;
 

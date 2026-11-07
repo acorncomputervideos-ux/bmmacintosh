@@ -15,12 +15,14 @@
 <link rel="modulepreload" href="/js/drive.js">
 <link rel="modulepreload" href="/js/disks.js">
 <link rel="modulepreload" href="/js/clipboard.js">
+<link rel="modulepreload" href="/js/drop.js">
 </head>
 <body>
 <header class="menubar">
   <nav class="menus" aria-label="Windows">
     <svg class="menu-icon" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="1" width="11" height="14" rx="2"/><rect class="scr" x="4.2" y="2.8" width="7.6" height="6" rx=".6"/><rect class="slot" x="5" y="11.4" width="3.5" height=".9"/></svg>
     <b class="menu-app">BMMacintosh</b>
+    <a href="#drop-h">Copy</a>
     <a href="#drive-h">Drive</a>
     <a href="#disks-h">Disks</a>
     <a href="#clip-h" id="menu-clip" hidden>Clipboard</a>
@@ -34,6 +36,34 @@
 </header>
 
 <main>
+  <section class="card" aria-labelledby="drop-h">
+    <h2 id="drop-h"><span>Copy files to the Pi</span></h2>
+    <p>Drop files or folders here (or anywhere on this page). Disk images go
+      to the <b>disks</b> folder, everything else to <b>shared</b>, the Mac
+      II's <i>SD Card</i> disk.</p>
+    <div class="drop-zone" id="drop-zone" tabindex="0" role="button" aria-describedby="drop-hint">
+      <span class="drop-icon" aria-hidden="true">⇩</span>
+      <span id="drop-hint">Drop files here, or <u>choose files…</u></span>
+    </div>
+    <input type="file" id="drop-input" multiple hidden>
+    <div class="drop-row">
+      <label>Put them in
+        <select id="drop-to">
+          <option value="auto" selected>Disks or shared, by kind</option>
+          <option value="shared">shared (the SD Card disk)</option>
+          <option value="disks">disks (disk images)</option>
+        </select>
+      </label>
+      <label class="check"><input id="drop-replace" type="checkbox"> Replace files of the same name</label>
+    </div>
+    <ul class="drop-list" id="drop-list"></ul>
+    <p class="msg" id="drop-msg" role="status"></p>
+    <p class="note">A web page gets a file's contents only: Mac files with a
+      resource fork (applications, many games) need to come as an archive
+      (.sit, .hqx, .bin) or a disk image. StuffIt archives and disk images
+      keep their types by their extensions.</p>
+  </section>
+
   <section class="card drive" aria-labelledby="drive-h">
     <h2 id="drive-h"><span>The SD card on your computer</span></h2>
     <p>The card opens as a network drive in your computer's own file manager:

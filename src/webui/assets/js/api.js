@@ -65,6 +65,30 @@ export async function deleteDisk(path) {
   return body;
 }
 
+// A dropped file to the card: to "shared" or "disks", path relative
+// ("Marathon/Map"). onProgress(sent, total). Resolves { size }; rejects
+// with an ApiError (409: there is one of that name).
+export function dropFile(file, to, path, replace, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const q = "to=" + to + "&path=" + encodeURIComponent(path) + (replace ? "&overwrite=1" : "");
+    xhr.open("POST", "/api/drop?" + q);
+    xhr.setRequestHeader("X-BMMacintosh-Web", "1");
+    xhr.setRequestHeader("Content-Type", "application/octet-stream");
+    xhr.upload.onprogress = (e) => onProgress && onProgress(e.loaded, e.total || file.size);
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try { resolve(JSON.parse(xhr.responseText)); } catch { resolve({}); }
+      } else {
+        reject(new ApiError(xhr.status, (xhr.responseText || "").trim()));
+      }
+    };
+    xhr.onerror = () => reject(new ApiError(0, "the connection to the Pi broke"));
+    xhr.ontimeout = () => reject(new ApiError(0, "the Pi stopped answering"));
+    xhr.send(file);
+  });
+}
+
 // ---- the Mac II's shared clipboard ----
 
 export const getClipboard = () => getJson("/api/clipboard");

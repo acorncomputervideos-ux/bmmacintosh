@@ -390,3 +390,65 @@ input[type="checkbox"]:checked::after { transform: rotate(-45deg); }
   .slot-label { width: auto; }
   .addr code { font-size: 13px; }
 }
+
+/* ---- Copy files to the Pi (drop.js) ---- */
+
+.drop-zone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 84px;
+  margin: 10px 0;
+  border: 2px dashed var(--ink);
+  background: var(--paper);
+  font-family: var(--title);
+  cursor: pointer;
+  user-select: none;
+}
+.drop-zone:hover, .drop-zone:focus-visible { background: var(--light); outline: none; }
+.drop-icon { font-size: 26px; line-height: 1; }
+body.dropping .drop-zone { background: var(--ink); color: var(--paper); border-style: solid; }
+body.dropping::after {
+  content: "Drop to copy to the Pi";
+  position: fixed;
+  inset: 22px 0 0 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 20px var(--title);
+  background: rgba(255, 255, 255, .6);
+  outline: 4px dashed var(--ink);
+  outline-offset: -14px;
+  pointer-events: none;
+}
+.drop-row { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.drop-row label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
+.drop-row label.check { flex-direction: row; align-items: center; gap: 6px; padding-bottom: 4px; }
+.drop-list { list-style: none; margin: 10px 0 0; padding: 0; max-height: 260px; overflow-y: auto; }
+.drop-list:empty { display: none; }
+.drop-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 120px;
+  grid-template-rows: auto auto;
+  column-gap: 10px;
+  padding: 4px 0;
+  border-top: 1px dotted var(--ink);
+  font-size: 12px;
+}
+.drop-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drop-bar {
+  grid-row: 1;
+  grid-column: 2;
+  align-self: center;
+  height: 10px;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+}
+.drop-bar span { display: block; height: 100%; width: 0; background: #444; }
+.drop-state { grid-column: 1 / -1; color: #333; }
+.drop-list li.failed .drop-state { font-weight: bold; color: var(--ink); }
+.drop-list li.failed .drop-state::before { content: "\26A0  "; }
+.drop-list li.done .drop-bar span { background: var(--ink); }
+.drop-list li.skipped { color: #555; }

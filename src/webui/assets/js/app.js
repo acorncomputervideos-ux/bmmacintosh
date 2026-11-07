@@ -7,12 +7,14 @@
 //   drive.js      the SD card as a network drive, and the settings files
 //   disks.js      the Mac's disks, and the disk images on the card
 //   clipboard.js  the Mac II's shared clipboard
+//   drop.js       files dropped on the page, copied to the card
 //   editor.js     overlay editor for the settings files
 
 import { initDashboard, refreshVolumes, startStatusPolling } from "./dashboard.js";
 import { initDrive } from "./drive.js";
 import { initDisks } from "./disks.js";
 import { initClipboard } from "./clipboard.js";
+import { initDrop } from "./drop.js";
 import { initEditor } from "./editor.js";
 import { loadMachine } from "./machine.js";
 
@@ -21,5 +23,6 @@ initEditor();
 await Promise.all([loadMachine(), initDrive()]);
 initDisks();
 initClipboard();
+initDrop();
 refreshVolumes();
 startStatusPolling();

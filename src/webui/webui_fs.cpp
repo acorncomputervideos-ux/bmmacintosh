@@ -52,6 +52,10 @@ const unsigned WEBUI_FS_EDIT_MAX = 256 * 1024;
 // One request is handled at a time by the web UI task, so a single file
 // scratch buffer is safe and keeps it off the task stack.
 u8 s_io_buffer[WEBUI_FS_IO_CHUNK];
+// Dropped files' (WebUiFsDrop()), which come in while the page's other
+// requests are answered, so not s_io_buffer. One at a time.
+u8 s_drop_buffer[WEBUI_FS_IO_CHUNK];
+bool s_drop_busy;
 
 
 void EmitUtf8(CChunkedResponse *r, unsigned cp) {
@@ -327,13 +331,14 @@ enum BodyResult {
 BodyResult ReceiveBodyToFile(CSocket *socket, const char *temppath,
                              const unsigned char *prefetched,
                              unsigned prefetched_len, unsigned long total,
-                             boolean reject_nul) {
+                             boolean reject_nul, const char *shown_name = 0,
+                             u8 *io = s_io_buffer) {
   sd_file *file = sd_open(temppath, SD_WRITE);
   if (file == 0) {
     return BODY_CREATE_FAILED;
   }
   // Shown on the Pi's screen while it lasts (src/port/transfer.h).
-  int shown = transfer_begin(temppath, 1, (long long) total);
+  int shown = transfer_begin(shown_name != 0 ? shown_name : temppath, 1, (long long) total);
 
   unsigned long written = 0;
   BodyResult result = BODY_OK;
@@ -357,22 +362,22 @@ BodyResult ReceiveBodyToFile(CSocket *socket, const char *temppath,
   unsigned buffered = 0;
   while (result == BODY_OK && written < total) {
     unsigned long remain = total - written;
-    unsigned space = sizeof(s_io_buffer) - buffered;
+    unsigned space = WEBUI_FS_IO_CHUNK - buffered;
     unsigned want = remain < space ? (unsigned) remain : space;
-    int n = webhttp::Receive(socket, s_io_buffer + buffered, want);
+    int n = webhttp::Receive(socket, io + buffered, want);
     if (n <= 0) {
       result = BODY_TRUNCATED;
       break;
     }
-    if (reject_nul && memchr(s_io_buffer + buffered, 0, (unsigned) n) != 0) {
+    if (reject_nul && memchr(io + buffered, 0, (unsigned) n) != 0) {
       result = BODY_HAS_NUL;
       break;
     }
     buffered += (unsigned) n;
     written += (unsigned) n;
     transfer_progress(shown, (long long) written);
-    if (buffered == sizeof(s_io_buffer) || written == total) {
-      if (sd_write(file, s_io_buffer, buffered) != SD_OK) {
+    if (buffered == WEBUI_FS_IO_CHUNK || written == total) {
+      if (sd_write(file, io, buffered) != SD_OK) {
         result = BODY_WRITE_FAILED;
         break;
       }
@@ -803,6 +808,169 @@ void WebUiFsDelete(CSocket *socket, const char *query) {
   const char *ok = "{\"ok\":true}";
   webhttp::SendResponse(socket, 200, "OK", "application/json", ok,
                         (unsigned) strlen(ok));
+}
+
+// ---- files dropped on the web page ----
+
+namespace {
+
+// One name from the page (UTF-8) for the card: CP850, as the network
+// drive's names are; what CP850 or FAT can't have becomes "_".
+bool DropName(const char *in, unsigned len, char *out, unsigned size) {
+  unsigned n = 0;
+  const unsigned char *p = (const unsigned char *) in, *end = p + len;
+  while (p < end) {
+    unsigned cp;
+    int extra;
+    if (*p < 0x80) {
+      cp = *p;
+      extra = 0;
+    } else if ((*p & 0xE0) == 0xC0) {
+      cp = *p & 0x1F;
+      extra = 1;
+    } else if ((*p & 0xF0) == 0xE0) {
+      cp = *p & 0x0F;
+      extra = 2;
+    } else if ((*p & 0xF8) == 0xF0) {
+      cp = *p & 0x07;
+      extra = 3;
+    } else {
+      return false;
+    }
+    p++;
+    for (int i = 0; i < extra; i++, p++) {
+      if (p >= end || (*p & 0xC0) != 0x80) return false;
+      cp = cp << 6 | (*p & 0x3F);
+    }
+    unsigned char b = Cp850FromUnicode(cp);
+    if (b == 0 || b < 0x20 || strchr("\\/:*?\"<>|", b) != 0) b = '_';
+    if (n + 1 >= size) return false;
+    out[n++] = (char) b;
+  }
+  // FAT drops a trailing dot or space: kept as "_" so the name is the one
+  // written. A name of dots only isn't one.
+  while (n > 0 && (out[n - 1] == '.' || out[n - 1] == ' ')) out[n - 1] = '_';
+  out[n] = '\0';
+  return n > 0 && n <= SD_MAX_NAME_LEN && strcmp(out, ".") != 0;
+}
+
+}  // namespace
+
+void WebUiFsDrop(CSocket *socket, const char *query,
+                 const unsigned char *prefetched, unsigned prefetched_len,
+                 long content_length) {
+  char to[16], rel[600];
+  if (!webhttp::QueryParam(query, "to", to, sizeof(to)) ||
+      (strcmp(to, "shared") != 0 && strcmp(to, "disks") != 0)) {
+    webhttp::SendText(socket, 400, "Bad Request", "to: shared or disks\n");
+    return;
+  }
+  if (!webhttp::QueryParam(query, "path", rel, sizeof(rel)) || rel[0] == '\0') {
+    webhttp::SendText(socket, 400, "Bad Request", "path too long or missing\n");
+    return;
+  }
+  if (content_length < 0) {
+    webhttp::SendText(socket, 411, "Length Required", "Content-Length header required\n");
+    return;
+  }
+
+  // /shared/<folders.../>name, each folder made if it isn't there.
+  char path[600];
+  int len = snprintf(path, sizeof(path), "/%s", to);
+  sd_mkdir(path);
+  const char *seg = rel;
+  const char *base = 0;
+  while (*seg != '\0') {
+    const char *end = strchr(seg, '/');
+    unsigned seg_len = end != 0 ? (unsigned) (end - seg) : (unsigned) strlen(seg);
+    if (seg_len > 0) {
+      char name[SD_MAX_NAME_LEN * 2 + 1];
+      if (!DropName(seg, seg_len, name, sizeof(name)) ||
+          (name[0] == '.' && (name[1] == '\0' || (name[1] == '.' && name[2] == '\0')))) {
+        webhttp::SendText(socket, 400, "Bad Request", "bad name\n");
+        return;
+      }
+      if (end != 0) {
+        // A folder on the way.
+        int n = snprintf(path + len, sizeof(path) - len, "/%s", name);
+        if (n <= 0 || (unsigned) (len + n) >= sizeof(path)) break;
+        len += n;
+        sd_info info;
+        if (sd_stat_info(path, &info) != SD_OK) {
+          if (sd_mkdir(path) != SD_OK) {
+            webhttp::SendText(socket, 409, "Conflict", "can't make the folder\n");
+            return;
+          }
+        } else if (!info.is_dir) {
+          webhttp::SendText(socket, 409, "Conflict", "a file has the folder's name\n");
+          return;
+        }
+      } else {
+        int n = snprintf(path + len, sizeof(path) - len, "/%s", name);
+        if (n <= 0 || (unsigned) (len + n) >= sizeof(path)) break;
+        base = path + len + 1;
+        len += n;
+      }
+    }
+    if (end == 0) break;
+    seg = end + 1;
+  }
+  if (base == 0 || len >= (int) sizeof(path) - 1) {
+    webhttp::SendText(socket, 400, "Bad Request", "bad or too long a path\n");
+    return;
+  }
+
+  char overwrite[4];
+  boolean allow_overwrite =
+      webhttp::QueryParam(query, "overwrite", overwrite, sizeof(overwrite)) &&
+      overwrite[0] == '1';
+  sd_info existing;
+  bool existed = sd_stat_info(path, &existing) == SD_OK;
+  if (existed && (existing.is_dir || !allow_overwrite)) {
+    webhttp::SendText(socket, 409, "Conflict",
+                      existing.is_dir ? "a folder has that name\n" : "file exists\n");
+    return;
+  }
+
+  // Into a hidden file next to it (the Mac doesn't see it, nor the network
+  // drive), then put in place.
+  char temp[640];
+  int dir_len = (int) (base - path);
+  if ((unsigned) snprintf(temp, sizeof(temp), "%.*s.~up-%s", dir_len, path, base) >=
+      sizeof(temp)) {
+    webhttp::SendText(socket, 400, "Bad Request", "path too long\n");
+    return;
+  }
+  if (s_drop_busy) {
+    webhttp::SendText(socket, 503, "Service Unavailable", "another file is coming in\n");
+    return;
+  }
+  s_drop_busy = true;
+  BodyResult result = ReceiveBodyToFile(socket, temp, prefetched, prefetched_len,
+                                        (unsigned long) content_length, FALSE, path,
+                                        s_drop_buffer);
+  s_drop_busy = false;
+  if (result != BODY_OK) {
+    SendBodyFailure(socket, result);
+    return;
+  }
+  if (existed) sd_unlink(path);
+  if (sd_rename(temp, path) != SD_OK) {
+    sd_unlink(temp);
+    webhttp::SendText(socket, 500, "Internal Server Error", "can't put it in place\n");
+    return;
+  }
+  // The Mac II's Finder info and resource fork of a file this replaces:
+  // gone, so the SD Card disk gives it its type afresh (src/port/ii/extfs_ii.cpp).
+  char helper[680];
+  snprintf(helper, sizeof(helper), "%.*s.finf/%s", dir_len, path, base);
+  sd_unlink(helper);
+  snprintf(helper, sizeof(helper), "%.*s.rsrc/%s", dir_len, path, base);
+  sd_unlink(helper);
+
+  char body[64];
+  int bn = snprintf(body, sizeof(body), "{\"ok\":true,\"size\":%ld}", content_length);
+  webhttp::SendResponse(socket, 200, "OK", "application/json", body, bn > 0 ? (unsigned) bn : 0);
 }
 
 // ---- new folder / rename ----

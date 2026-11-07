@@ -45,6 +45,15 @@ void WebUiFsUpload(CSocket *socket, const char *query,
                    const unsigned char *prefetched, unsigned prefetched_len,
                    long content_length);
 
+// POST /api/drop?to=shared|disks&path=Folder/Name  <- the raw request body
+// is a file dropped on the web page, for the card's shared folder (the Mac
+// II's SD Card disk) or disks folder. path is relative (UTF-8; folders in
+// it are made), and &overwrite=1 replaces a file of that name (409
+// otherwise). The Mac's old Finder info and resource fork for it go.
+void WebUiFsDrop(CSocket *socket, const char *query,
+                 const unsigned char *prefetched, unsigned prefetched_len,
+                 long content_length);
+
 // POST /api/fs/save?vol=SD&path=/settings.txt  <- the raw request body
 // replaces one of the editable config files (cmdline.txt, config.txt,
 // wpa_supplicant.conf, macii.prefs, bmmac.cfg): up to 256 KB of

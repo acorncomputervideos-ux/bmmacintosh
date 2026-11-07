@@ -290,6 +290,15 @@ Things to know:
   **Reboot the Pi**, **Shut down** (the Pi halts; switch it off, then on
   again to restart; a Pi 400 switches itself off, and its power key starts
   it again).
+- **Copy files to the Pi**: drop files or folders anywhere on the page
+  (or choose them) and they are copied to the card, each with its
+  progress: disk images to the `disks` folder, everything else to
+  `shared` (the Mac II's *SD Card* disk), or where *Put them in* says.
+  Folders keep what is in them; macOS's `.DS_Store` and `._` files are
+  left out, and a file already there is replaced only when you say so. A
+  browser hands over a file's contents only, so Mac files with a resource
+  fork (applications, many games) should come as an archive (`.sit`,
+  `.hqx`, `.bin`) or a disk image; it needs no network drive set up.
 - **Disks**: the Mac's disks now, and the disk images in the card's
   `disks` folder (and the folders in it). On the Mac II, **Insert** puts
   a floppy or CD-ROM image in a drive while the Mac runs, **Eject** asks

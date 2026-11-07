@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Copy files to the Pi** on the web page: drop files or folders anywhere
+  on it (or choose them), and they go to the card, one at a time with
+  their progress: disk images to `disks`, the rest to `shared`. Folders
+  are made as needed, names are kept (as the network drive keeps them),
+  macOS's hidden files are left out, and the Mac's old type information
+  for a replaced file goes. Uploads come in alongside the page's other
+  requests (POST /api/drop)
 - **Uploads to the Pi lost data.** Circle's `Receive()` brings one TCP
   segment a call and drops what doesn't fit the buffer it is given, and
   the network drive (and the web page's uploads, its clipboard and the
