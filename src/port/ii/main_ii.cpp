@@ -217,38 +217,33 @@ static void one_tick(void)
 	ii_ether_tick();
 }
 
-/* More instructions a frame while they fit, fewer when they don't. What
-   fits is what the frame leaves once the screen is copied and shown, and
-   Circle's tasks and the rest have had their turn (OVERHEAD, the most of
-   it lately), less a margin: the CPU's share of the frame was 80% with that
-   not counted, and frames late by a moment (a disk read, Wi-Fi) missed the
-   display's refresh, about one in ten. A late frame takes 15% off at once,
-   and the budget doesn't grow again for two seconds. */
+/* More instructions a frame while they fit, fewer when they don't. They
+   get what a frame leaves once the screen is copied and shown and Circle's
+   tasks have run (OVERHEAD, its usual amount: a frame's at most one
+   period, so the menu or a transfer's pause doesn't count as usual), less
+   a margin, and never less than 60% of the frame nor more than 80% (all
+   it had before the rest was counted). A frame late now and then (the
+   once a second work, a disk read) isn't answered with fewer instructions:
+   that held them down, the next late frame lower still, and the Mac went
+   at half speed or less. */
 static void adjust_budget(double cpu_time, double overhead, bool late)
 {
-	static double worst_overhead;
-	static int hold;
+	static double usual_overhead = 0.002;
 	double period = 1.0 / emu_frame_rate();
-	worst_overhead = overhead > worst_overhead ? overhead : worst_overhead * 0.98;
-	double target = period * 0.88 - worst_overhead;
-	if (target < period * 0.3)
-		target = period * 0.3;
-	if (late) {
-		frame_budget = (int32) (frame_budget * 0.85);
-		hold = 120;
-	} else if (hold > 0) {
-		hold--;
-	}
+	(void) late;
+	usual_overhead += ((overhead < period ? overhead : period) - usual_overhead) * 0.05;
+	double target = period * 0.85 - usual_overhead;
+	if (target < period * 0.6)
+		target = period * 0.6;
+	if (target > period * 0.8)
+		target = period * 0.8;
 	if (cpu_time <= 0.0) {
-		if (hold == 0)
-			frame_budget = max_budget;
+		frame_budget = max_budget;
 		return;
 	}
 	double scaled = frame_budget * (target / cpu_time);
-	/* Up slowly (and not while held), down at once. */
-	double up = hold > 0 ? 1.0 : 1.05;
-	if (scaled > frame_budget * up)
-		scaled = frame_budget * up;
+	if (scaled > frame_budget * 1.1)
+		scaled = frame_budget * 1.1;
 	if (scaled < frame_budget * 0.5)
 		scaled = frame_budget * 0.5;
 	frame_budget = (int32) scaled;

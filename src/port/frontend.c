@@ -861,6 +861,7 @@ static int transfer_pause(void)
 /* ---- The frame --------------------------------------------------------------- */
 
 static int speed_percent = 100;
+static int once_a_second;   /* the part of the once a second work due, 1 to 3; 0 none */
 static double frame_wait;   /* the last frame's wait for the display (or the clock) */
 
 double bmmac_frame_wait(void)
@@ -942,11 +943,17 @@ void bmmac_frame(void)
 		                       / emu_frame_rate() * 100.0 + 0.5);
 		last_second = now;
 		frames_at_second = frames;
-		emu_sync_disks();
-		sync_files();
-		show_network_address();
-		host_network_watch();
+		once_a_second = 1;
 	}
+	/* The once a second work, a part a frame: all in one frame made that
+	   frame miss the display's refresh. */
+	switch (once_a_second) {
+	case 1: emu_sync_disks(); break;
+	case 2: sync_files(); break;
+	case 3: show_network_address(); host_network_watch(); break;
+	}
+	if (once_a_second > 0)
+		once_a_second = once_a_second < 3 ? once_a_second + 1 : 0;
 	handle_requests();
 }
 

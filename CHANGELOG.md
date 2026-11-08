@@ -13,11 +13,13 @@
 - The menu (F12) shows, under the Mac II's speed, how many million 68k
   instructions a second it runs and where a frame's time goes (the Mac,
   the rest, to spare), over the last second
-- The Mac II keeps up with the display: its instructions a frame now fit
-  what the frame leaves after the screen is copied and shown (that wasn't
-  counted, and about one frame in ten missed the display's refresh, "91%"
-  in the menu), and a late frame (a disk read, Wi-Fi) takes 15% off at
-  once and holds the budget for two seconds
+- The Mac II keeps up with the display: its instructions a frame fit
+  what a frame usually leaves after the screen is copied and shown
+  (between 60% and 80% of it; 80%, with that not counted, missed about
+  one refresh in ten), and the once a second work (saving disks, the
+  network's checks) is spread over three frames. (A build in between cut
+  the instructions at every late frame and held them down: the Mac ran at
+  half speed or less.)
 - **The SD Card disk keeps files' types, creators, icons and resource
   forks on the Pi.** circle-newlib's open() says ENOTDIR when a folder on
   the way isn't there (FatFs's FR_NO_PATH), where POSIX says ENOENT, and
