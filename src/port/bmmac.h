@@ -119,6 +119,9 @@ const char *bmmac_last_transfer(void);
 /* Gives the Mac the mouse's movement since the last call, smoothed (see
    frontend.c): called several times a frame by the emulators. */
 void bmmac_mouse_tick(void);
+/* How long the last frame waited for the display's refresh (or, without
+   it, the clock), in seconds: time the emulator could have used. */
+double bmmac_frame_wait(void);
 /* Web UI requests waiting to be done; menus close for them. */
 int bmmac_pending_requests(void);
 /* The machine emulated, for the web UI and the menu. */

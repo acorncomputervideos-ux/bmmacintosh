@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- The Mac II keeps up with the display: its instructions a frame now fit
+  what the frame leaves after the screen is copied and shown (that wasn't
+  counted, and about one frame in ten missed the display's refresh, "91%"
+  in the menu), and a late frame (a disk read, Wi-Fi) takes 15% off at
+  once and holds the budget for two seconds
 - **The SD Card disk keeps files' types, creators, icons and resource
   forks on the Pi.** circle-newlib's open() says ENOTDIR when a folder on
   the way isn't there (FatFs's FR_NO_PATH), where POSIX says ENOENT, and

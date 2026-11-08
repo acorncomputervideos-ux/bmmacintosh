@@ -861,6 +861,12 @@ static int transfer_pause(void)
 /* ---- The frame --------------------------------------------------------------- */
 
 static int speed_percent = 100;
+static double frame_wait;   /* the last frame's wait for the display (or the clock) */
+
+double bmmac_frame_wait(void)
+{
+	return frame_wait;
+}
 static double frame_due;
 static double last_second;
 static long frames, frames_at_second;
@@ -902,6 +908,7 @@ void bmmac_frame(void)
 		overlay_drawn = osd_draw_notification(fb_pixels, fb_pitch_px, w, h);
 		overlay_drawn |= draw_disk_light(w, h);
 	}
+	double wait_started = host_time();
 	host_video_present(vsync_lock);
 	if (!vsync_lock) {
 		/* Paced by the clock instead. */
@@ -913,6 +920,7 @@ void bmmac_frame(void)
 		if (frame_due > now)
 			host_sleep_us((unsigned) ((frame_due - now) * 1000000.0));
 	}
+	frame_wait = host_time() - wait_started;
 	frames++;
 
 	keyboard();

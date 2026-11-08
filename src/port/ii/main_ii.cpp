@@ -217,19 +217,38 @@ static void one_tick(void)
 	ii_ether_tick();
 }
 
-/* More instructions a frame while they fit in 80% of its time, fewer when
-   they don't. */
-static void adjust_budget(double cpu_time)
+/* More instructions a frame while they fit, fewer when they don't. What
+   fits is what the frame leaves once the screen is copied and shown, and
+   Circle's tasks and the rest have had their turn (OVERHEAD, the most of
+   it lately), less a margin: the CPU's share of the frame was 80% with that
+   not counted, and frames late by a moment (a disk read, Wi-Fi) missed the
+   display's refresh, about one in ten. A late frame takes 15% off at once,
+   and the budget doesn't grow again for two seconds. */
+static void adjust_budget(double cpu_time, double overhead, bool late)
 {
+	static double worst_overhead;
+	static int hold;
 	double period = 1.0 / emu_frame_rate();
-	double target = period * 0.8;
+	worst_overhead = overhead > worst_overhead ? overhead : worst_overhead * 0.98;
+	double target = period * 0.88 - worst_overhead;
+	if (target < period * 0.3)
+		target = period * 0.3;
+	if (late) {
+		frame_budget = (int32) (frame_budget * 0.85);
+		hold = 120;
+	} else if (hold > 0) {
+		hold--;
+	}
 	if (cpu_time <= 0.0) {
-		frame_budget = max_budget;
+		if (hold == 0)
+			frame_budget = max_budget;
 		return;
 	}
 	double scaled = frame_budget * (target / cpu_time);
-	if (scaled > frame_budget * 1.25)
-		scaled = frame_budget * 1.25;
+	/* Up slowly (and not while held), down at once. */
+	double up = hold > 0 ? 1.0 : 1.05;
+	if (scaled > frame_budget * up)
+		scaled = frame_budget * up;
 	if (scaled < frame_budget * 0.5)
 		scaled = frame_budget * 0.5;
 	frame_budget = (int32) scaled;
@@ -241,14 +260,25 @@ static void adjust_budget(double cpu_time)
 
 static void frame(void)
 {
-	double cpu_time = host_time() - cpu_started;
+	static double last_frame;
+	double now = host_time();
+	double cpu_time = now - cpu_started;
+	/* A frame's whole time, from the last one's start: more than one and
+	   a half display periods means one was missed. */
+	double period = 1.0 / emu_frame_rate();
+	bool late = last_frame != 0.0 && now - last_frame > period * 1.5 && now - last_frame < 1.0;
+	last_frame = now;
 	if (!tick_inhibit)
 		one_tick();
 	ii_audio_frame();
 	bmmac_frame();
 	ii_adb_frame();
 	ii_eject_check();
-	adjust_budget(cpu_time);
+	/* What isn't the Mac's: the screen, the display's wait, and the rest.
+	   With the display's refresh to wait for, that wait isn't work:
+	   bmmac_frame_wait() says how long it was. */
+	double overhead = host_time() - now - bmmac_frame_wait();
+	adjust_budget(cpu_time, overhead > 0.0 ? overhead : 0.0, late);
 	if (restart_requested) {
 		restart_requested = false;
 		throw mac_restart{0};
