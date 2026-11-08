@@ -1,0 +1,54 @@
+umac
+====
+
+BMMacintosh's Mac Plus kernels include umac, the Mac 128K, 512K and Plus
+emulator by Matt Evans (https://github.com/evansm7/umac, commit
+b62d3c6e725ca2ac2224e710b3cee765dbc35e45). Its notice, from its README:
+
+# License(s)
+
+The basis for the 68K `sonydrv.S` and host-side disc driver code in
+`disc.c`/`b2_macos_util.h` (as detailed in those files) is from
+Basilisk II, Copyright 1997-2008 Christian Bauer, and released under
+GPLv2.
+
+The `keymap.h` and `keymap_sdl.h` headers are based on Mini vMac
+OSGLUSDL.c Copyright (C) 2012 Paul C. Pratt, Manuel Alfayate, and
+OSGLUAAA.h Copyright (C) 2006 Philip Cummins, Richard F. Bannister,
+Paul C. Pratt, released under GPLv2.
+
+Some small portions of `main.c` (debug, interrupts) are from the
+_Musashi_ project's `example/sim.c`.  _Musashi_ is Copyright 1998-2002
+Karl Stenerud, and released under the MIT licence.
+
+The remainder of the code is released under the MIT licence:
+
+ Copyright (c) 2024 Matt Evans
+
+ Permission is hereby granted, free of charge, to any person obtaining a copy
+ of this software and associated documentation files (the "Software"), to deal
+ in the Software without restriction, including without limitation the rights
+ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ copies of the Software, and to permit persons to whom the Software is
+ furnished to do so, subject to the following conditions:
+
+ The above copyright notice and this permission notice shall be included in all
+ copies or substantial portions of the Software.
+
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ SOFTWARE.
+
+BMMacintosh builds umac's emulator (src/main.c, via.c, scc.c, rom.c,
+disc.c) and its replacement disk driver (include/sonydrv.h), not its SDL
+front end (src/unix_main.c) or the keyboard tables taken from Mini vMac
+(include/keymap.h, keymap_sdl.h): BMMacintosh has its own keyboard code.
+The parts from Basilisk II in disc.c and b2_macos_util.h are under the
+GPL version 2 or later, as Basilisk II is (basilisk2.txt, GPL-2.0.txt).
+umac's replacement Mac disk driver (macsrc/sonydrv.S, include/sonydrv.h),
+whose changes are marked "GPLv2", isn't used: BMMacintosh has its own,
+from Basilisk II's (GPL version 2 or later).

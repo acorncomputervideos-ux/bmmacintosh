@@ -1,0 +1,60 @@
+The Macs' ROMs
+==============
+
+Apple's ROMs aren't free, so BMMacintosh doesn't come with any: put your
+own in this folder (roms), or as .rom files in the card's root. Each Mac
+needs its own, and BMMacintosh finds them by their contents (a Mac ROM's
+first four bytes are its checksum), whatever the files are called:
+
+  Mac II and Quadra (Basilisk II, a Pi 4 or 5)
+      A 32-bit clean ROM of a 68030 or 68040 Mac: best a Quadra 650's or
+      800's (checksum F1ACAD13, 1 MB), for System 7.1 to Mac OS 8.1 (8.1
+      tested). Others: the IIci's (368CADFE, 512K), the Quadra 700's and
+      900's (420DBFF3), 950's (3DC27823), 605's (FF7439EE), the Centris
+      650's (F1A6F343), the LC III's (ECBBC41C). Not the Mac II's, IIx's
+      or SE/30's (24-bit ROMs), nor the AV Quadras'.
+
+  Mac Plus (umac, every Pi)
+      The Mac Plus's last ROM (checksum 4D1F8172, 128K), for the System
+      software of its time (System 4.3 tested). Not the Mac 128K's,
+      512K's or the Plus's first two ROMs.
+
+They can be:
+
+  - ROM files, as they are (.rom, .bin or any name)
+  - MAME's zipped ROM sets, as they are: macqd800.zip (Quadra 800, with
+    the Quadra 650's ROM), maciici.zip, macqd700.zip, macplus.zip... MAME
+    keeps some ROMs in their chips (the Mac Plus's in two, the IIci's in
+    four): BMMacintosh puts them back together.
+
+In the menu (F12), ROM chooses between the ones found; without a choice,
+the Quadra 650's is the Mac II's, if it's there.
+
+tools/mac_media.py (in BMMacintosh's source) writes plain ROM files from
+MAME's sets, for other emulators:
+
+  tools/mac_media.py roms ~/mame/roms -o roms
+
+System software
+---------------
+
+The Macs start from disk images in the disks folder (or anywhere on the
+card): Apple's system software isn't free either. In the menu, Hard Disks
+(Mac II) or Disk (Mac Plus), then Restart the Mac.
+
+  - Disk images (.dsk, .img, .image, .hda, .hfv): a floppy's (400K,
+    800K), raw or DiskCopy 4.2, or a hard disk's, raw or with an Apple
+    partition map. The Mac Plus starts from such a disk's first HFS
+    partition.
+  - MAME's hard disks are CHD files, which BMMacintosh can't read: MAME's
+    chdman makes them raw, and so does
+
+      tools/mac_media.py disk macos81.chd -o disks/macos81.hda
+      tools/mac_media.py disk sys43fin60.chd -o disks/sys43.hda
+
+    (both Macs start from what it makes; --volume writes the HFS volume
+    alone, for other emulators). FAT32, on the SD card, takes files up
+    to 4 GB.
+
+Hold Shift while Mac OS starts to start it without its extensions: Mac
+OS 8.1 from MAME's macos81.chd stops at its A/ROSE extension otherwise.

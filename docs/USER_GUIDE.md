@@ -299,6 +299,16 @@ Things to know:
   browser hands over a file's contents only, so Mac files with a resource
   fork (applications, many games) should come as an archive (`.sit`,
   `.hqx`, `.bin`) or a disk image; it needs no network drive set up.
+- **Update BMMacintosh** (under System): drop a new release's zip on the
+  box (or choose it) and the Pi installs it on its card, then offers to
+  reboot into it. The kernels, the Pi's boot files, overlays, Wi-Fi
+  firmware and licences are replaced (the old kernels kept as `.old`, to
+  go back to by renaming them); your `disks`, `shared` and `roms` folders,
+  `wpa_supplicant.conf`, `bmmac.cfg` and `macii.prefs` are left as they
+  are. `config.txt` and `cmdline.txt` are kept too: when the release's
+  differ, they are put next to yours as `config.txt.new` and
+  `cmdline.txt.new`. A zip that isn't a BMMacintosh release, or doesn't
+  unpack whole (a broken download), changes nothing.
 - **Disks**: the Mac's disks now, and the disk images in the card's
   `disks` folder (and the folders in it). On the Mac II, **Insert** puts
   a floppy or CD-ROM image in a drive while the Mac runs, **Eject** asks

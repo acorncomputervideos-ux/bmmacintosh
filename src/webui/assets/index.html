@@ -16,6 +16,7 @@
 <link rel="modulepreload" href="/js/disks.js">
 <link rel="modulepreload" href="/js/clipboard.js">
 <link rel="modulepreload" href="/js/drop.js">
+<link rel="modulepreload" href="/js/update.js">
 </head>
 <body>
 <header class="menubar">
@@ -28,6 +29,7 @@
     <a href="#clip-h" id="menu-clip" hidden>Clipboard</a>
     <a href="#set-h">Settings</a>
     <a href="#sys-h">System</a>
+    <a href="#upd-h">Update</a>
   </nav>
   <div class="menu-right">
     <span class="machine" id="i-machine">—</span>
@@ -172,6 +174,24 @@
       <dt>Throttled</dt><dd id="d-thr">—</dd>
       <dt>… since it started</dt><dd id="d-thr-boot">—</dd>
     </dl>
+    <h3 id="upd-h">Update BMMacintosh</h3>
+    <p class="note-top">Drop a release's zip (as it comes, or the SD card zip) on the box: the Pi
+      puts the new version on its card, keeping your disks, files and settings, and starts it
+      when you reboot. The old kernels are kept as <code>.old</code> files.</p>
+    <div class="drop-zone upd-zone" id="upd-zone" tabindex="0" role="button" aria-labelledby="upd-h">
+      <span class="drop-icon" aria-hidden="true">⇪</span>
+      <span>Drop the zip here, or <u>choose it…</u></span>
+    </div>
+    <input type="file" id="upd-input" accept=".zip,application/zip" hidden>
+    <div class="upd-progress" id="upd-progress" hidden>
+      <span class="drop-name" id="upd-name"></span>
+      <span class="drop-bar"><span id="upd-fill"></span></span>
+      <span class="drop-state" id="upd-state"></span>
+    </div>
+    <p class="msg" id="upd-msg" role="status"></p>
+    <div class="actions" id="upd-done" hidden>
+      <button class="btn btn-primary" id="upd-reboot" type="button">Reboot the Pi now<small>Disk images are saved first</small></button>
+    </div>
     <button class="link" id="qa-disable" type="button">Turn the web UI and network drive off until the next reboot</button>
   </section>
 </main>

@@ -54,6 +54,12 @@ void WebUiFsDrop(CSocket *socket, const char *query,
                  const unsigned char *prefetched, unsigned prefetched_len,
                  long content_length);
 
+// POST /api/update  <- the raw request body is a BMMacintosh release zip,
+// installed on the card for the next boot (update.h). Answers JSON:
+// {"ok":..., "replaced":n, "kept":n, "version":"...", "message":"..."}.
+void WebUiFsUpdate(CSocket *socket, const unsigned char *prefetched, unsigned prefetched_len,
+                   long content_length);
+
 // POST /api/fs/save?vol=SD&path=/settings.txt  <- the raw request body
 // replaces one of the editable config files (cmdline.txt, config.txt,
 // wpa_supplicant.conf, macii.prefs, bmmac.cfg): up to 256 KB of

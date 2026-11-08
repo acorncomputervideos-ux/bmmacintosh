@@ -602,6 +602,16 @@ boolean HandleConnection(CSocket *socket) {
 
   // Files dropped on the page: their own buffer, so not waiting for the
   // page's other requests (nor holding them up for a whole upload).
+  if (is_post && strcmp(target, "/api/update") == 0) {
+    // Replaces the kernels: the same cross-site protection as /api/fs/save.
+    if (!HasHeader(request, "x-bmmacintosh-web:")) {
+      SendText(socket, 403, "Forbidden", "missing X-BMMacintosh-Web header\n");
+      return FALSE;
+    }
+    WebUiFsUpdate(socket, body, body_prefetched, content_length);
+    return FALSE;
+  }
+
   if (is_post && strcmp(target, "/api/drop") == 0) {
     // Writes to the card: the same cross-site protection as /api/fs/save.
     if (!HasHeader(request, "x-bmmacintosh-web:")) {

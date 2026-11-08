@@ -89,6 +89,26 @@ export function dropFile(file, to, path, replace, onProgress) {
   });
 }
 
+// A release zip, installed for the next boot (POST /api/update). Resolves
+// { ok, replaced, kept, version, message }; rejects with an ApiError.
+export function installUpdate(file, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/update");
+    xhr.setRequestHeader("X-BMMacintosh-Web", "1");
+    xhr.setRequestHeader("Content-Type", "application/zip");
+    xhr.upload.onprogress = (e) => onProgress && onProgress(e.loaded, e.total || file.size);
+    xhr.onload = () => {
+      let body = {};
+      try { body = JSON.parse(xhr.responseText); } catch { /* not JSON */ }
+      if (xhr.status >= 200 && xhr.status < 300) resolve(body);
+      else reject(new ApiError(xhr.status, body.message || (xhr.responseText || "").trim()));
+    };
+    xhr.onerror = () => reject(new ApiError(0, "the connection to the Pi broke"));
+    xhr.send(file);
+  });
+}
+
 // ---- the Mac II's shared clipboard ----
 
 export const getClipboard = () => getJson("/api/clipboard");

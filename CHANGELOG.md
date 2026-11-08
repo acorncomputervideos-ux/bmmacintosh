@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Update from the web page**: drop a release's zip on *Update
+  BMMacintosh* (under System) and the Pi installs it for its next boot,
+  then offers to reboot. Kernels, boot files, overlays and Wi-Fi firmware
+  are replaced (the old kernels kept as `.old`); the disks, shared and roms
+  folders and the settings are kept, and a release's different
+  `config.txt`/`cmdline.txt` go beside yours as `.new`. Everything is
+  unpacked and checked (CRC-32) before anything is replaced. Releases now
+  hold a `VERSION.txt`. tools/update tests it
 - The menu (F12) shows, under the Mac II's speed, how many million 68k
   instructions a second it runs and where a frame's time goes (the Mac,
   the rest, to spare), over the last second

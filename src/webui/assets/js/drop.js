@@ -5,6 +5,7 @@
 import * as api from "./api.js";
 import { $, fmtBytes } from "./util.js";
 import { refresh as refreshDisks } from "./disks.js";
+import { installUpdate, looksLikeRelease } from "./update.js";
 
 const IMAGE_EXT = /\.(dsk|img|image|hda|hfv|dc42|diskcopy|iso|toast|cdr)$/i;
 // What macOS leaves next to files: of no use to the Mac II.
@@ -94,6 +95,13 @@ function addRow(job) {
 }
 
 async function enqueue(groups) {
+  // A BMMacintosh release on its own: the update, if that's what's meant.
+  if (groups.length === 1 && !groups[0].folder && looksLikeRelease(groups[0].name) &&
+      confirm(groups[0].name + " looks like a BMMacintosh release.\n\n" +
+              "Install it as an update? (Cancel copies it to the card instead.)")) {
+    installUpdate(groups[0].files[0].file);
+    return;
+  }
   let n = 0;
   for (const g of groups) {
     const to = destination(g);
@@ -196,7 +204,7 @@ export function initDrop() {
     e.dataTransfer.dropEffect = "copy";
   });
   document.addEventListener("drop", async (e) => {
-    if (!hasFiles(e)) return;
+    if (!hasFiles(e) || e.defaultPrevented) return;
     e.preventDefault();
     depth = 0;
     document.body.classList.remove("dropping");

@@ -25,6 +25,7 @@
 
 #include "webui_http.h"
 
+#include <circle/logger.h>
 #include <circle/net/socket.h>
 #include <circle/sched/scheduler.h>
 #include <circle/types.h>
@@ -35,6 +36,7 @@
 #include "../sdcard/sd_fs.h"
 #include "cp850.h"
 #include "../port/transfer.h"
+#include "update.h"
 
 // Implemented in src/vice_network.cpp.
 extern "C" const char *circle_get_disk_volume(void);
@@ -971,6 +973,57 @@ void WebUiFsDrop(CSocket *socket, const char *query,
   char body[64];
   int bn = snprintf(body, sizeof(body), "{\"ok\":true,\"size\":%ld}", content_length);
   webhttp::SendResponse(socket, 200, "OK", "application/json", body, bn > 0 ? (unsigned) bn : 0);
+}
+
+// ---- the web page's update ----
+
+namespace {
+void YieldWhileUnpacking(void) { CScheduler::Get()->Yield(); }
+}  // namespace
+
+void WebUiFsUpdate(CSocket *socket, const unsigned char *prefetched, unsigned prefetched_len,
+                   long content_length) {
+  if (content_length <= 0) {
+    webhttp::SendText(socket, 411, "Length Required", "Content-Length header required\n");
+    return;
+  }
+  if (s_drop_busy) {
+    webhttp::SendText(socket, 503, "Service Unavailable", "another file is coming in\n");
+    return;
+  }
+  // The zip on the card first (hidden from the Mac and the network drive).
+  static const char kZip[] = "/.~bmmac-update.zip";
+  s_drop_busy = true;
+  sd_unlink(kZip);
+  BodyResult result = ReceiveBodyToFile(socket, kZip, prefetched, prefetched_len,
+                                        (unsigned long) content_length, FALSE,
+                                        "BMMacintosh update", s_drop_buffer);
+  s_drop_busy = false;
+  if (result != BODY_OK) {
+    SendBodyFailure(socket, result);
+    return;
+  }
+  static UpdateResult r;
+  UpdateInstall(kZip, &r, YieldWhileUnpacking);
+  sd_unlink(kZip);
+
+  char body[640];
+  unsigned n = 0;
+  n += (unsigned) snprintf(body + n, sizeof(body) - n, "{\"ok\":%s,\"replaced\":%u,\"kept\":%u,"
+                           "\"version\":\"", r.ok ? "true" : "false", r.replaced, r.kept);
+  // Plain text from the zip and here: quotes and backslashes left out.
+  for (const char *p = r.version; *p && n + 2 < sizeof(body); p++) {
+    if (*p != '"' && *p != '\\' && (unsigned char) *p >= 0x20) body[n++] = *p;
+  }
+  n += (unsigned) snprintf(body + n, sizeof(body) - n, "\",\"message\":\"");
+  for (const char *p = r.message; *p && n + 3 < sizeof(body); p++) {
+    if (*p != '"' && *p != '\\' && (unsigned char) *p >= 0x20) body[n++] = *p;
+  }
+  n += (unsigned) snprintf(body + n, sizeof(body) - n, "\"}");
+  if (n >= sizeof(body)) n = sizeof(body) - 1;
+  CLogger::Get()->Write("webui", r.ok ? LogNotice : LogWarning, "Update: %s", r.message);
+  webhttp::SendResponse(socket, r.ok ? 200 : 422, r.ok ? "OK" : "Unprocessable Entity",
+                        "application/json", body, n);
 }
 
 // ---- new folder / rename ----

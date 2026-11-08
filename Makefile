@@ -83,7 +83,7 @@ OBJS = src/main.o src/kernel.o src/logging.o src/options.o \
        src/network.o src/network_time_sync.o \
        src/webui/webui.o src/webui/webui_http.o src/webui/webui_fs.o \
        src/webui/webui_machine.o src/webui/webui_assets.o src/webui/webdav.o \
-       src/webui/webui_disks.o \
+       src/webui/webui_disks.o src/webui/update.o \
        src/sdcard/sd_fs_fatfs.o src/sdcard/sd_fs_file.o
 
 # zlib's inflate, for MAME's zipped ROM sets (src/port/roms.c).
@@ -146,6 +146,7 @@ CFLAGS += $(VERSION_DEFINES)
 CPPFLAGS += $(VERSION_DEFINES)
 
 src/port/roms.o src/port/roms.d: CFLAGS += -I $(ZLIB)
+src/webui/update.o src/webui/update.d: CPPFLAGS += -I $(ZLIB)
 
 $(BUILD)/zlib/%.o: $(ZLIB)/%.c
 	@mkdir -p $(dir $@)

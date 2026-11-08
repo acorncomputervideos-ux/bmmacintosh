@@ -136,6 +136,7 @@ then
     run_tests "$SRC_DIR/tools/disks/run_tests.sh"
     run_tests "$SRC_DIR/tools/clipboard/run_tests.sh"
     run_tests "$SRC_DIR/tools/mouse/run_tests.sh"
+    run_tests "$SRC_DIR/tools/update/run_tests.sh"
 fi
 
 # The SD card is staged once; each board's build adds its kernels.
@@ -157,6 +158,8 @@ cp "$SRC_DIR/LICENSE" "$STAGING_DIR/LICENSE.txt"
 # (docs/THIRD_PARTY.md).
 cp -r "$SRC_DIR/sdcard/licenses" "$STAGING_DIR/"
 cp "$SRC_DIR/docs/SDCARD_README.txt" "$STAGING_DIR/README.txt"
+# The release's version, for the web page's update (src/webui/update.cpp).
+"$SRC_DIR/tools/version.sh" > "$STAGING_DIR/VERSION.txt"
 
 # Folders for the user's files. The file browser starts at the root. Each
 # gets a README, which also keeps it in zip files and CI artifacts (GitHub

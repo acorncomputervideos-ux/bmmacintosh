@@ -452,3 +452,16 @@ body.dropping::after {
 .drop-list li.failed .drop-state::before { content: "\26A0  "; }
 .drop-list li.done .drop-bar span { background: var(--ink); }
 .drop-list li.skipped { color: #555; }
+
+/* ---- Update BMMacintosh (update.js) ---- */
+
+.upd-zone { min-height: 64px; }
+.upd-progress {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 120px;
+  column-gap: 10px;
+  margin-top: 8px;
+  font-size: 12px;
+}
+.upd-progress[hidden] { display: none; }
+#upd-done { margin-top: 10px; }

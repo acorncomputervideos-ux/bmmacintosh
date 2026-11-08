@@ -1,0 +1,30 @@
+Basilisk II
+===========
+
+BMMacintosh's Mac II kernels include Basilisk II, the 68k Macintosh
+emulator by Christian Bauer and others, from kanjitalk755's macemu
+(https://github.com/kanjitalk755/macemu, commit
+f532be3d3d70b70f272b52050ce0889a4025d624, BasiliskII/src).
+
+  Basilisk II (C) 1997-2008 Christian Bauer
+
+  This program is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+Its 68040 CPU core (uae_cpu_2021) is ARAnyM's, from UAE, the Un*x Amiga
+Emulator (Copyright 1995, 1996 Bernd Schmidt; Copyright (c) 2010 ARAnyM
+dev team), and its floating point emulation is from UAE and ARAnyM, all
+under the GNU General Public License version 2 or later.
+
+BMMacintosh's src/port/ii/ follows Basilisk II's Unix front end
+(src/Unix/), and extfs_ii.cpp is its extfs_unix.cpp changed for the SD
+card, under the same licence.
+
+The GNU General Public License version 2 is in GPL-2.0.txt.
