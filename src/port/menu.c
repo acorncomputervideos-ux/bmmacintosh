@@ -654,13 +654,13 @@ void bmmac_menu(void)
 {
 	enum { M_MACHINE = 1, M_VIDEO, M_SOUND, M_MOUSE, M_NETWORK, M_ABOUT, M_REBOOT, M_OFF };
 	static int sel = 0;
-	char title[48], speed[48];
+	char title[48], speed[48], perf[2][48];
 
 	snprintf(title, sizeof(title), "BMMacintosh %s", BMMAC_VERSION);
 	reboot_needed = FALSE;
 	osd_open();
 	for (;;) {
-		struct osd_item items[EMU_ITEMS + 12];
+		struct osd_item items[EMU_ITEMS + 16];
 		int n = emu_menu_items(items, EMU_ITEMS), chosen, leave = FALSE;
 		const struct osd_item common[] = {
 			{"", NULL, OSD_ITEM_LABEL, -1},
@@ -680,6 +680,16 @@ void bmmac_menu(void)
 		memcpy(items + n, common, sizeof common);
 		n += sizeof common / sizeof common[0];
 		snprintf(speed, sizeof speed, "%s", speed_text(FALSE));
+		/* Where the time goes (the Mac II's): to see a change help. */
+		for (int line = 0; line < 2; line++) {
+			if (!emu_perf_text(line, perf[line], sizeof perf[line]))
+				break;
+			items[n].text = perf[line];
+			items[n].value = NULL;
+			items[n].flags = OSD_ITEM_LABEL;
+			items[n].id = -1;
+			n++;
+		}
 		chosen = osd_menu(title, items, n, &sel);
 
 		switch (chosen) {

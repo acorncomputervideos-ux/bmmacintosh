@@ -258,6 +258,49 @@ static void adjust_budget(double cpu_time, double overhead, bool late)
 		frame_budget = 20000;
 }
 
+/* Where the frames' time goes, over the last second, for the menu
+   (emu_perf_text()): how fast the Mac's 68k runs, and a frame's time for
+   it, for the rest (the screen, Circle's tasks) and to spare. */
+static double perf_mips, perf_cpu_ms, perf_other_ms, perf_spare_ms;
+
+static void note_perf(double cpu_time, double overhead, double wait, int32 instructions)
+{
+	static double started, cpu, other, spare;
+	static double done;
+	static int frames;
+	double now = host_time();
+	if (started == 0.0)
+		started = now;
+	cpu += cpu_time;
+	other += overhead;
+	spare += wait;
+	done += instructions;
+	frames++;
+	if (now - started >= 1.0) {
+		perf_mips = done / (now - started) / 1e6;
+		perf_cpu_ms = cpu / frames * 1000.0;
+		perf_other_ms = other / frames * 1000.0;
+		perf_spare_ms = spare / frames * 1000.0;
+		started = now;
+		cpu = other = spare = done = 0.0;
+		frames = 0;
+	}
+}
+
+int emu_perf_text(int line, char *text, unsigned size)
+{
+	if (perf_mips <= 0.0)
+		return 0;
+	if (line == 0)
+		snprintf(text, size, "68k: %.0f million instructions a second", perf_mips);
+	else if (line == 1)
+		snprintf(text, size, "Frame: Mac %.1f, rest %.1f, spare %.1f ms",
+		         perf_cpu_ms, perf_other_ms, perf_spare_ms);
+	else
+		return 0;
+	return 1;
+}
+
 static void frame(void)
 {
 	static double last_frame;
@@ -278,7 +321,10 @@ static void frame(void)
 	   With the display's refresh to wait for, that wait isn't work:
 	   bmmac_frame_wait() says how long it was. */
 	double overhead = host_time() - now - bmmac_frame_wait();
-	adjust_budget(cpu_time, overhead > 0.0 ? overhead : 0.0, late);
+	if (overhead < 0.0)
+		overhead = 0.0;
+	note_perf(cpu_time, overhead, bmmac_frame_wait(), frame_budget);
+	adjust_budget(cpu_time, overhead, late);
 	if (restart_requested) {
 		restart_requested = false;
 		throw mac_restart{0};

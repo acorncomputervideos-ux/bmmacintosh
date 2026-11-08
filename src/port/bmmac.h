@@ -122,6 +122,9 @@ void bmmac_mouse_tick(void);
 /* How long the last frame waited for the display's refresh (or, without
    it, the clock), in seconds: time the emulator could have used. */
 double bmmac_frame_wait(void);
+/* A line (0, 1, ...) of where the frames' time goes, for the menu; 0 when
+   there is none (the Mac Plus, or not measured yet). */
+int emu_perf_text(int line, char *text, unsigned size);
 /* Web UI requests waiting to be done; menus close for them. */
 int bmmac_pending_requests(void);
 /* The machine emulated, for the web UI and the menu. */

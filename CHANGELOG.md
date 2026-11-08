@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- The menu (F12) shows, under the Mac II's speed, how many million 68k
+  instructions a second it runs and where a frame's time goes (the Mac,
+  the rest, to spare), over the last second
 - The Mac II keeps up with the display: its instructions a frame now fit
   what the frame leaves after the screen is copied and shown (that wasn't
   counted, and about one frame in ten missed the display's refresh, "91%"

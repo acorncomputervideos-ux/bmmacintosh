@@ -567,6 +567,14 @@ int emu_machine(void)
 	return BMMAC_PLUS;
 }
 
+int emu_perf_text(int line, char *text, unsigned size)
+{
+	(void) line;
+	(void) text;
+	(void) size;
+	return 0;
+}
+
 const char *emu_machine_text(void)
 {
 	static char text[64];
