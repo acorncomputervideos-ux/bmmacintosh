@@ -37,6 +37,7 @@ struct transfer_info {
 	int upload;               /* from the computer to the card */
 	long long total, done;    /* total -1: not known */
 	unsigned serial;          /* goes up with each transfer begun */
+	unsigned synced;          /* the serial the emulator last saved its disks for */
 	/* Since transfer_session_reset(): files finished, and their bytes. */
 	unsigned files;
 	long long bytes;
@@ -49,6 +50,10 @@ struct transfer_info {
 	double last_seconds;
 };
 void transfer_get(struct transfer_info *info);
+/* The emulator has written its disk images' pending changes to the card
+   for transfer SERIAL (at a frame's end, as it begins): a download of one
+   is then the disk as the Mac left it. */
+void transfer_synced(unsigned serial);
 void transfer_session_reset(void);
 
 #ifdef __cplusplus

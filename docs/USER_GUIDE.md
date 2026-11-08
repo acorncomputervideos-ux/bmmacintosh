@@ -317,7 +317,10 @@ Things to know:
   couldn't initialize comes out at once), **Add** makes a hard
   disk image one of its hard disks
   and **Remove** takes one off (from the Mac's next start), and **Start
-  from** restarts the Mac from any image. **Delete** deletes an image the
+  from** restarts the Mac from any image. **Download** saves a copy of
+  an image on your computer, as a backup: one the Mac is using comes as
+  the Mac left it (it writes its changes out first, and pauses while the
+  image downloads, in the transfer window). **Delete** deletes an image the
   Mac isn't using from the card (one in a drive, on the hard disk list or
   still open since the Mac started can't be). On the Mac Plus, **Start from**
   changes its one disk and restarts it. **New disk image** (the Mac II)

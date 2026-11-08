@@ -28,9 +28,11 @@
 #include <circle/logger.h>
 #include <circle/net/socket.h>
 #include <circle/sched/scheduler.h>
+#include <circle/timer.h>
 #include <circle/types.h>
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "../sdcard/sd_fs.h"
@@ -973,6 +975,118 @@ void WebUiFsDrop(CSocket *socket, const char *query,
   char body[64];
   int bn = snprintf(body, sizeof(body), "{\"ok\":true,\"size\":%ld}", content_length);
   webhttp::SendResponse(socket, 200, "OK", "application/json", body, bn > 0 ? (unsigned) bn : 0);
+}
+
+// ---- downloads (GET /api/get) ----
+
+namespace {
+
+// A path from the page (UTF-8, as the listings give the card's CP850
+// names) back to the card's. False if a character has no CP850 one.
+bool Utf8ToCardPath(const char *in, char *out, unsigned size) {
+  unsigned n = 0;
+  for (const unsigned char *p = (const unsigned char *) in; *p;) {
+    unsigned cp;
+    int extra;
+    if (*p < 0x80) { cp = *p; extra = 0; }
+    else if ((*p & 0xE0) == 0xC0) { cp = *p & 0x1F; extra = 1; }
+    else if ((*p & 0xF0) == 0xE0) { cp = *p & 0x0F; extra = 2; }
+    else return false;
+    p++;
+    for (int i = 0; i < extra; i++, p++) {
+      if ((*p & 0xC0) != 0x80) return false;
+      cp = cp << 6 | (*p & 0x3F);
+    }
+    unsigned char b = Cp850FromUnicode(cp);
+    if (b == 0 || n + 1 >= size) return false;
+    out[n++] = (char) b;
+  }
+  out[n] = '\0';
+  return true;
+}
+
+}  // namespace
+
+void WebUiFsGet(CSocket *socket, const char *query) {
+  char utf8[560], card[560], clean[560];
+  if (!webhttp::QueryParam(query, "path", utf8, sizeof(utf8)) ||
+      !Utf8ToCardPath(utf8, card, sizeof(card)) ||
+      SanitizeRelPath(card, clean, sizeof(clean)) != 0 || strcmp(clean, "/") == 0) {
+    webhttp::SendText(socket, 400, "Bad Request", "bad path\n");
+    return;
+  }
+  sd_info info;
+  if (sd_stat_info(clean, &info) != SD_OK || info.is_dir) {
+    webhttp::SendText(socket, 404, "Not Found", "no such file\n");
+    return;
+  }
+  u8 *buf = (u8 *) malloc(WEBUI_FS_IO_CHUNK);
+  if (buf == 0) {
+    webhttp::SendText(socket, 503, "Service Unavailable", "out of memory\n");
+    return;
+  }
+
+  // Shown on the Pi's screen, and the Mac paused, while it goes (the
+  // transfer window); the emulator first writes its disks' changes out,
+  // so that a disk image in use comes as the Mac left it.
+  int shown = transfer_begin(clean, 0, (long long) info.size);
+  if (shown != 0) {
+    double until = CTimer::Get()->GetClockTicks64() / 1000000.0 + 2.0;
+    struct transfer_info t;
+    for (;;) {
+      transfer_get(&t);
+      if (t.synced == (unsigned) shown) break;
+      if (CTimer::Get()->GetClockTicks64() / 1000000.0 > until) break;
+      CScheduler::Get()->Yield();
+    }
+  }
+
+  sd_file *file = sd_open(clean, SD_READ);
+  if (file == 0) {
+    transfer_end(shown, 0);
+    free(buf);
+    webhttp::SendText(socket, 404, "Not Found", "cannot open file\n");
+    return;
+  }
+  uint32_t size = sd_size(file);
+
+  // The name: plain ASCII for old browsers, and UTF-8 (RFC 5987) as it is.
+  const char *base = strrchr(utf8, '/') ? strrchr(utf8, '/') + 1 : utf8;
+  char ascii[128], encoded[400];
+  unsigned ai = 0, ei = 0;
+  for (const unsigned char *p = (const unsigned char *) base; *p; p++) {
+    if (ai + 1 < sizeof(ascii)) ascii[ai++] = (*p >= 0x20 && *p < 0x7F && *p != '"' && *p != '\\') ? (char) *p : '_';
+    bool plain = (*p >= 'A' && *p <= 'Z') || (*p >= 'a' && *p <= 'z') || (*p >= '0' && *p <= '9') ||
+                 strchr("!#$&+-.^_`|~", *p) != 0;
+    if (plain && ei + 1 < sizeof(encoded)) encoded[ei++] = (char) *p;
+    else if (!plain && ei + 3 < sizeof(encoded)) ei += (unsigned) snprintf(encoded + ei, 4, "%%%02X", *p);
+  }
+  ascii[ai] = '\0';
+  encoded[ei] = '\0';
+  char header[700];
+  int hn = snprintf(header, sizeof(header),
+                    "HTTP/1.1 200 OK\r\n"
+                    "Content-Type: application/octet-stream\r\n"
+                    "Content-Length: %lu\r\n"
+                    "Content-Disposition: attachment; filename=\"%s\"; filename*=UTF-8''%s\r\n"
+                    "Connection: close\r\n"
+                    "Cache-Control: no-store\r\n"
+                    "\r\n",
+                    (unsigned long) size, ai ? ascii : "download", encoded);
+  unsigned long sent = 0;
+  if (hn > 0 && (unsigned) hn < sizeof(header) && webhttp::SendAll(socket, header, (unsigned) hn)) {
+    for (;;) {
+      unsigned got = 0;
+      if (sd_read(file, buf, WEBUI_FS_IO_CHUNK, &got) != SD_OK || got == 0) break;
+      if (!webhttp::SendAll(socket, buf, got)) break;
+      sent += got;
+      transfer_progress(shown, (long long) sent);
+      CScheduler::Get()->Yield();
+    }
+  }
+  transfer_end(shown, sent == size);
+  sd_close(file);
+  free(buf);
 }
 
 // ---- the web page's update ----

@@ -54,6 +54,13 @@ void WebUiFsDrop(CSocket *socket, const char *query,
                  const unsigned char *prefetched, unsigned prefetched_len,
                  long content_length);
 
+// GET /api/get?path=/disks/Mac%20OS.hda  -> a file on the card, to save
+// (the path in UTF-8, as the listings give it). Answered alongside the
+// page's other requests; the Mac pauses meanwhile (the transfer window),
+// and saves its disks' changes first, so a disk image in use downloads
+// as the Mac left it.
+void WebUiFsGet(CSocket *socket, const char *query);
+
 // POST /api/update  <- the raw request body is a BMMacintosh release zip,
 // installed on the card for the next boot (update.h). Answers JSON:
 // {"ok":..., "replaced":n, "kept":n, "version":"...", "message":"..."}.

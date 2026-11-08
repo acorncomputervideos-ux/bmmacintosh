@@ -63,6 +63,11 @@ void transfer_end(int transfer, int ok)
 	}
 }
 
+void transfer_synced(unsigned serial)
+{
+	state.synced = serial;
+}
+
 void transfer_get(struct transfer_info *info)
 {
 	*info = state;

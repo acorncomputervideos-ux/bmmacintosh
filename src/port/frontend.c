@@ -794,6 +794,12 @@ static int transfer_pause(void)
 	transfer_get(&t);
 	last_paused = FALSE;
 	note_transfers(&t);
+	/* A transfer begun: the disk images' changes saved first, so that one
+	   downloaded is as the Mac left it (webui_fs.cpp waits for this). */
+	if (t.active && t.synced != t.serial) {
+		emu_sync_disks();
+		transfer_synced(t.serial);
+	}
 	if (t.active)
 		transfer_seen = now;
 	else if (transfer_skip && now - transfer_seen > TRANSFER_LINGER)

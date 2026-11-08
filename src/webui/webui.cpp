@@ -602,6 +602,11 @@ boolean HandleConnection(CSocket *socket) {
 
   // Files dropped on the page: their own buffer, so not waiting for the
   // page's other requests (nor holding them up for a whole upload).
+  if (is_get && strcmp(target, "/api/get") == 0) {
+    WebUiFsGet(socket, query);
+    return FALSE;
+  }
+
   if (is_post && strcmp(target, "/api/update") == 0) {
     // Replaces the kernels: the same cross-site protection as /api/fs/save.
     if (!HasHeader(request, "x-bmmacintosh-web:")) {

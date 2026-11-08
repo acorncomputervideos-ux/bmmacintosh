@@ -83,6 +83,21 @@ function renderNow() {
   }
 }
 
+// A disk image to save on this computer (GET /api/get). One the Mac is
+// using comes as the Mac left it: it saves its changes first and pauses
+// while it goes.
+function downloadLink(path, used) {
+  const a = document.createElement("a");
+  a.className = "btn btn-small";
+  a.textContent = "Download";
+  a.href = "/api/get?path=" + encodeURIComponent(path);
+  a.setAttribute("download", base(path));
+  a.title = used
+    ? "The Mac saves its changes and pauses while it downloads, so the copy is the disk as it left it."
+    : "Save a copy on this computer.";
+  return a;
+}
+
 const KIND = { floppy: "Floppy", cd: "CD-ROM", hard: "Hard disk", disk: "Disk" };
 
 function renderImages() {
@@ -114,6 +129,7 @@ function renderImages() {
       acts.append(button("Add", () => change("add", { path: img.path })));
     }
     if (img.startable) acts.append(button("Start from", () => start(img.path)));
+    acts.append(downloadLink(img.path, inUse.has(img.path)));
     if (!inUse.has(img.path)) {
       acts.append(button("Delete", () => deleteDisk(img.path), { danger: true }));
     }

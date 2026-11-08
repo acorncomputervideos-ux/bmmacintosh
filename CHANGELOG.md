@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Download** on the web page's disk images: a copy to save on your
+  computer, as a backup. The emulator writes its disks' changes out
+  first, and the Mac pauses while it downloads (the transfer window), so
+  an image in use comes as the Mac left it. Downloads go alongside the
+  page's other requests (GET /api/get, names as they are). The Copy card
+  links to the card's folders for files the other way
 - **Update from the web page**: drop a release's zip on *Update
   BMMacintosh* (under System) and the Pi installs it for its next boot,
   then offers to reboot. Kernels, boot files, overlays and Wi-Fi firmware

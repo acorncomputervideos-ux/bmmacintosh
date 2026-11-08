@@ -465,3 +465,4 @@ body.dropping::after {
 }
 .upd-progress[hidden] { display: none; }
 #upd-done { margin-top: 10px; }
+a.btn { display: inline-block; color: var(--ink); text-decoration: none; }
